@@ -31,7 +31,11 @@ A fast, intuitive command-line interface for Dokploy that enables developers to 
 - Create applications (name, build type, source type)
 - Deploy applications
 - Delete applications
-- View deployment status
+- Update application settings (name, description, build type, replicas, resource limits)
+- Start/stop applications
+- View application details (basic and full)
+- View deployment status and logs
+- View environment variables, domains, mounts, and port mappings
 
 ### 4. Database Management (db)
 - List databases in a project
@@ -54,6 +58,18 @@ A fast, intuitive command-line interface for Dokploy that enables developers to 
 - View server statistics (CPU, memory, disk)
 - Display server information
 - Monitor resource usage
+
+### 8. Configuration Management (config)
+- Manage multiple server configurations
+- Add, remove, and switch between server aliases
+- Export and import configuration
+- Export application and project configurations
+
+### 9. Backup Destination Management (destination)
+- List S3-compatible backup destinations
+- Add new backup destinations with credentials
+- Test destination connectivity
+- Remove backup destinations
 
 ## Technical Requirements
 
@@ -114,16 +130,35 @@ A fast, intuitive command-line interface for Dokploy that enables developers to 
 | POST | `/application.remove` | Delete app |
 | POST | `/application.deploy` | Deploy app |
 
+## Phase 1 Core CLI Completion
+
+### Newly Added (Phase 1)
+- **Application Update Command**: Update application name, description, build type, replicas, resource limits
+- **Application Info Enhancement**: Full details including environment variables, domains, deployments, mounts, and ports
+- **Destination Command**: Full CRUD operations for S3-compatible backup storage
+- **Extended Type System**: ApplicationFull, Mount, Port, Redirect, Security types for complete application configuration
+
+### Extended Type System
+All new types support advanced application configuration:
+- **Mount**: Volume/bind mount and file configuration
+- **Port**: Published port to container port mapping with protocol selection
+- **Redirect**: HTTP redirect rules with regex pattern matching
+- **Security**: Basic authentication credential management
+- **Destination**: S3-compatible backup destination with credentials and region settings
+
 ## Version & Release
 
-- **Current Version**: 0.1.0
+- **Current Version**: 0.2.0
+- **Phase**: Phase 1 Core CLI completion
 - **License**: MIT
 - **Min Bun Version**: 1.1.0
 
 ## Future Roadmap
 
-1. Watch mode for deployment logs
-2. Configuration file support (`.dokployrc`)
-3. Shell completion scripts
-4. Deployment history and rollback
-5. Resource monitoring and alerts
+1. **Phase 2**: Export/Import functionality (project and application configuration)
+2. **Phase 3**: TUI enhancements (rich interface for app management)
+3. Watch mode for deployment logs
+4. Automatic shell completion scripts
+5. Deployment history and rollback capabilities
+6. Resource monitoring and performance alerts
+7. Log streaming and real-time monitoring

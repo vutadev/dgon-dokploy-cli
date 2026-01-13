@@ -4,41 +4,41 @@
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    CLI User (Terminal)                   │
+│                 CLI User (Terminal)                      │
+│  (Interactive TTY with --no-tui forces CLI mode)       │
 └────────────────────────┬────────────────────────────────┘
                          │
-                ┌────────▼─────────┐
-                │  Commander.js    │
-                │  (CLI Framework) │
-                └────────┬─────────┘
+                         ├─ TUI Mode (Ink/React) ─┐
+                         │                         │
+        ┌────────────────▼─────────┐     ┌────────▼────┐
+        │  Commander.js CLI        │     │ TUI App     │
+        │  (CLI Framework)         │     │ (Interactive)
+        └────────┬─────────────────┘     └────────┬────┘
+                 │                               │
+        ┌────────┴───────────────────────────────┘
+        │
+   ┌────▼──────────────┐
+   │ 9 Command Modules │
+   │ + TUI Integration │
+   └────┬──────────────┘
+        │
+        ├─► auth, config, project, app, db
+        ├─► domain, env, server, destination
+        │
+        ├─────────────────────────────────────┐
+        │                                     │
+   ┌────▼────┐  ┌───────────────┐  ┌────────▼──────┐
+   │ Output  │  │ Config Manager│  │ API Client    │
+   │ Layer   │  │ (multi-server)│  │ (Type-safe)   │
+   └────┬────┘  └───────┬───────┘  └────────┬──────┘
+        │                │                  │
+        └────────────────┼──────────────────┘
                          │
-        ┌────────────────┼────────────────┐
-        │                │                │
-   ┌────▼────┐  ┌───────▼──────┐  ┌─────▼──────┐
-   │ Commands │  │ Output Layer │  │  Config    │
-   │ (7 sets) │  │ (UI helpers) │  │  Manager   │
-   └────┬────┘  └───────┬──────┘  └─────┬──────┘
-        │                │                │
-        └────────────────┼────────────────┘
-                         │
-                ┌────────▼─────────┐
-                │   API Client     │
-                │  (fetch-based)   │
-                └────────┬─────────┘
-                         │
-        ┌────────────────┼────────────────┐
-        │                │                │
-   ┌────▼────────┐  ┌────▼────────┐  ┌──▼──────────┐
-   │ HTTP Request│  │ Auth Header  │  │ JSON Body   │
-   │ (REST)      │  │ (x-api-key)  │  │ (Payload)   │
-   └────┬────────┘  └────┬────────┘  └──┬──────────┘
-        │                │                │
-        └────────────────┼────────────────┘
-                         │
-        ┌────────────────▼────────────────┐
-        │   Dokploy Server API            │
-        │   (http://localhost:3000/api)   │
-        └─────────────────────────────────┘
+              ┌──────────▼──────────┐
+              │  Dokploy REST API   │
+              │  Authentication:    │
+              │  x-api-key header   │
+              └─────────────────────┘
 ```
 
 ## Component Descriptions
@@ -54,18 +54,20 @@
 - Registers all command modules
 - Sets up global hooks for option processing
 
-### Commands (7 Modules)
+### Commands (9 Modules)
 Each module handles a resource domain:
 
 | Module | Endpoints | Operations |
 |--------|-----------|-----------|
 | **auth** | N/A | Login, logout, whoami, verify |
+| **config** | N/A | Manage multi-server aliases, export/import |
 | **project** | /project.* | List, create, delete, info |
-| **app** | /application.* | List, create, delete, deploy |
+| **app** | /application.* | List, create, update, delete, deploy, start, stop, logs, info |
 | **db** | /database.* | List, create, delete |
 | **domain** | /domain.* | List, create, delete |
 | **env** | /env.* | List, set, delete |
 | **server** | /server.* | Stats, info |
+| **destination** | /destination.* | List, add, test, remove (S3 backup storage) |
 
 ### Output Layer (lib/output.ts)
 Terminal UI utilities:

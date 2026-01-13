@@ -3,7 +3,7 @@
 ## Overview
 dokploy-cli is a TypeScript CLI application built with Bun for managing Dokploy self-hosted deployments. It provides commands for authentication, project management, application deployment, database management, domain configuration, environment variables, and server monitoring.
 
-**Version**: 0.1.0
+**Version**: 0.2.0
 **Package Manager**: Bun 1.1+
 **Language**: TypeScript 5.7+
 **Module Format**: ES Modules
@@ -12,10 +12,10 @@ dokploy-cli is a TypeScript CLI application built with Bun for managing Dokploy 
 
 | Metric | Value |
 |--------|-------|
-| Source Files | 15 |
+| Source Files | 18 |
 | Directories | 5 |
 | Languages | TypeScript |
-| Commands | 7 (auth, project, app, db, domain, env, server) |
+| Commands | 9 (auth, config, project, app, db, domain, env, server, destination) |
 | Dependencies | 6 production, 2 dev |
 | Tests | 3 test files |
 
@@ -24,15 +24,17 @@ dokploy-cli is a TypeScript CLI application built with Bun for managing Dokploy 
 ```
 dokploy-cli/
 ├── src/
-│   ├── index.ts                 # CLI entry point (37 lines)
-│   ├── commands/                # Command implementations (7 modules)
+│   ├── index.ts                 # CLI entry point (59 lines)
+│   ├── commands/                # Command implementations (9 modules)
 │   │   ├── auth.ts             # Authentication (login, logout, verify, whoami)
+│   │   ├── config.ts           # Configuration file management
 │   │   ├── project.ts          # Project CRUD operations
-│   │   ├── app.ts              # Application management
+│   │   ├── app.ts              # Application management (create, update, deploy, logs, etc.)
 │   │   ├── db.ts               # Database operations
 │   │   ├── domain.ts           # Domain binding management
 │   │   ├── env.ts              # Environment variable management
-│   │   └── server.ts           # Server information and statistics
+│   │   ├── server.ts           # Server information and statistics
+│   │   └── destination.ts       # Backup destination (S3-compatible storage)
 │   ├── lib/                     # Shared libraries
 │   │   ├── api.ts              # HTTP client and API error handling (84 lines)
 │   │   ├── config.ts           # Configuration management (40 lines)
@@ -51,11 +53,13 @@ dokploy-cli/
 ## Key Files Analysis
 
 ### Entry Point (src/index.ts)
+- Checks if TUI mode should be launched (interactive TTY + no subcommand)
 - Imports Commander.js as CLI framework
-- Registers global options: `--json`, `-q/--quiet`, `--config`, `--server`
-- Imports and adds 7 command modules
-- Hook: `preAction` sets output mode based on options
-- Version: 0.1.0
+- Registers global options: `--json`, `-q/--quiet`, `--config`, `--server`, `-a/--alias`, `--no-tui`
+- Imports and adds 9 command modules
+- Hook: `preAction` sets output mode and active server alias based on options
+- Version: 0.2.0
+- Supports both TUI mode (default in interactive terminal) and CLI mode (for scripts/automation)
 
 ### API Client (src/lib/api.ts)
 **Key Components**:
@@ -94,16 +98,26 @@ dokploy-cli/
 
 ### Type Definitions (src/types/index.ts)
 **Core Models**:
-- **GlobalOptions**: CLI flags
-- **DokployConfig**: Stored configuration
+- **GlobalOptions**: CLI flags (json, quiet, config, server, alias, no-tui)
+- **ServerConfig**: {serverUrl, apiToken, defaultProjectId?}
+- **DokployConfig**: {currentAlias, servers} - multi-server configuration
 - **ApiResponse**: Generic API envelope
-- **Project**: {projectId, name, description?, createdAt}
+- **Environment**: {environmentId, name, description?, projectId, isDefault, createdAt, applications?}
+- **Project**: {projectId, name, description?, createdAt, environments?}
 - **Application**: {applicationId, name, appName, projectId, applicationStatus, buildType, sourceType, createdAt}
+- **ApplicationFull**: Extended Application with env, dockerfile, credentials, git details, domains, deployments, mounts, ports, redirects, security
 - **Database**: {id, name, appName, projectId, databaseStatus, type, createdAt}
 - **Domain**: {domainId, host, path?, port?, https, certificateType, applicationId?, createdAt}
-- **ServerStats**: {cpu, memory, disk}
+- **Mount**: {mountId, type (bind|volume|file), hostPath?, mountPath, content?, serviceType?}
+- **Port**: {portId, publishedPort, targetPort, protocol (tcp|udp)}
+- **Redirect**: {redirectId, regex, replacement, permanent}
+- **Security**: {securityId, username, password} - basic auth configuration
+- **Destination**: {destinationId, name, accessKey, secretAccessKey, bucket, region, endpoint, createdAt}
+- **ServerStats**: {cpu, memory {total, used, free}, disk {total, used, free}}
 - **Deployment**: {deploymentId, title?, status, logPath, applicationId?, composeId?, createdAt}
 - **EnvVar**: {key, value}
+- **AppExport**: Export format for applications
+- **ProjectExport**: Export format for projects
 
 **Enums**:
 - ApplicationStatus: 'idle' | 'running' | 'done' | 'error'
@@ -111,6 +125,9 @@ dokploy-cli/
 - SourceType: 'github' | 'gitlab' | 'bitbucket' | 'git' | 'docker' | 'drop'
 - DatabaseType: 'postgres' | 'mysql' | 'mongo' | 'redis' | 'mariadb'
 - CertificateType: 'none' | 'letsencrypt' | 'custom'
+- DeploymentStatus: 'running' | 'done' | 'error'
+- MountType: 'bind' | 'volume' | 'file'
+- Protocol: 'tcp' | 'udp'
 
 ### Command Structure
 Each command module follows pattern:
@@ -160,27 +177,47 @@ Each command module follows pattern:
 
 All endpoints follow pattern: `{serverUrl}/api{endpoint}`
 
-**Endpoints Used**:
-- `/project.all` (GET): List projects
-- `/project.one` (POST): Get project details
+**Project & Environment Endpoints**:
+- `/project.all` (GET): List all projects
+- `/project.one` (POST): Get project details with environments
 - `/project.create` (POST): Create project
 - `/project.remove` (POST): Delete project
-- `/application.all` (GET): List applications
-- `/application.one` (POST): Get application details
+
+**Application Endpoints**:
+- `/application.all` (GET): List all applications
+- `/application.one` (POST): Get full application details
 - `/application.create` (POST): Create application
-- `/application.remove` (POST): Delete application
-- `/application.deploy` (POST): Deploy application
+- `/application.update` (POST): Update application settings
+- `/application.deploy` (POST): Start deployment
+- `/application.start` (POST): Start application
+- `/application.stop` (POST): Stop application
+- `/application.delete` (POST): Delete application
+- `/deployment.all` (POST): Get deployments for application
+
+**Database Endpoints**:
 - `/database.all` (GET): List databases
 - `/database.one` (POST): Get database details
 - `/database.create` (POST): Create database
 - `/database.remove` (POST): Delete database
+
+**Domain Endpoints**:
 - `/domain.all` (GET): List domains
-- `/domain.create` (POST): Create domain
+- `/domain.create` (POST): Create domain binding
 - `/domain.remove` (POST): Delete domain
+
+**Environment Variable Endpoints**:
 - `/env.list` (GET): List environment variables
 - `/env.set` (POST): Set environment variable
 - `/env.delete` (POST): Delete environment variable
-- `/server.stats` (GET): Get server statistics
+
+**Destination Endpoints** (S3-compatible backup storage):
+- `/destination.all` (GET): List backup destinations
+- `/destination.create` (POST): Create destination
+- `/destination.testConnection` (POST): Test destination connection
+- `/destination.remove` (POST): Remove destination
+
+**Server Endpoints**:
+- `/server.stats` (GET): Get server statistics (CPU, memory, disk)
 - `/server.info` (GET): Get server information
 
 ## Output System (src/lib/output.ts)

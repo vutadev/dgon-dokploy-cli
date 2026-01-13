@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { input, select, confirm } from '@inquirer/prompts';
 import { api, ApiError } from '../lib/api.js';
 import { success, error, table, keyValue, spinner, isJson, json, info } from '../lib/output.js';
-import type { Application, Project, Deployment } from '../types/index.js';
+import type { Application, ApplicationFull, Project, Deployment } from '../types/index.js';
 
 export const appCommand = new Command('app')
   .description('Manage applications');
@@ -246,30 +246,136 @@ appCommand
   });
 
 appCommand
+  .command('update <appId>')
+  .description('Update application settings')
+  .option('-n, --name <name>', 'Application name')
+  .option('-d, --description <description>', 'Description')
+  .option('--build-type <type>', 'Build type (dockerfile|nixpacks|buildpack|static)')
+  .option('--replicas <n>', 'Number of replicas', parseInt)
+  .option('--docker-image <image>', 'Docker image (for docker source type)')
+  .option('--memory-limit <mb>', 'Memory limit in MB', parseInt)
+  .option('--cpu-limit <cores>', 'CPU limit (decimal)', parseFloat)
+  .action(async (appId, options) => {
+    // Build update payload - only include provided options
+    const updatePayload: Record<string, unknown> = { applicationId: appId };
+
+    if (options.name) updatePayload.name = options.name;
+    if (options.description !== undefined) updatePayload.description = options.description;
+    if (options.buildType) updatePayload.buildType = options.buildType;
+    if (options.replicas !== undefined) updatePayload.replicas = options.replicas;
+    if (options.dockerImage) updatePayload.dockerImage = options.dockerImage;
+    if (options.memoryLimit !== undefined) updatePayload.memoryLimit = options.memoryLimit;
+    if (options.cpuLimit !== undefined) updatePayload.cpuLimit = options.cpuLimit;
+
+    // Check if any updates provided
+    if (Object.keys(updatePayload).length === 1) {
+      error('No update options provided. Use --help to see available options.');
+      process.exit(1);
+    }
+
+    const s = spinner('Updating application...').start();
+
+    try {
+      await api.post('/application.update', updatePayload);
+      s.succeed('Application updated');
+
+      if (isJson()) {
+        json({ success: true, applicationId: appId, updated: Object.keys(updatePayload).filter(k => k !== 'applicationId') });
+      } else {
+        success(`Application ${appId} updated`);
+        info(`Updated fields: ${Object.keys(updatePayload).filter(k => k !== 'applicationId').join(', ')}`);
+      }
+    } catch (err) {
+      s.fail('Failed to update application');
+      if (err instanceof ApiError) {
+        error(err.message);
+      }
+      process.exit(1);
+    }
+  });
+
+appCommand
   .command('info <appId>')
   .description('Show application details')
-  .action(async (appId) => {
+  .option('--full', 'Show full details including env, domains, deployments, mounts')
+  .action(async (appId, options) => {
     const s = spinner('Fetching application...').start();
 
     try {
-      const app = await api.post<Application>('/application.one', {
+      const app = await api.post<ApplicationFull>('/application.one', {
         applicationId: appId,
       });
       s.stop();
 
       if (isJson()) {
         json(app);
-      } else {
-        keyValue({
-          'ID': app.applicationId,
-          'Name': app.name,
-          'App Name': app.appName,
-          'Status': app.applicationStatus,
-          'Build Type': app.buildType,
-          'Source': app.sourceType,
-          'Created': app.createdAt,
-        });
+        return;
       }
+
+      // Basic info
+      keyValue({
+        'ID': app.applicationId,
+        'Name': app.name,
+        'App Name': app.appName,
+        'Status': app.applicationStatus,
+        'Build Type': app.buildType,
+        'Source': app.sourceType,
+        'Replicas': app.replicas?.toString() || '1',
+        'Created': app.createdAt,
+      });
+
+      if (!options.full) return;
+
+      // Full details
+      console.log('\n--- Environment Variables ---');
+      if (app.env) {
+        const lines = app.env.split('\n').filter(Boolean);
+        console.log(`${lines.length} variable(s)`);
+        lines.slice(0, 5).forEach(line => {
+          const [key] = line.split('=');
+          console.log(`  ${key}=***`);
+        });
+        if (lines.length > 5) console.log(`  ... and ${lines.length - 5} more`);
+      } else {
+        console.log('  (none)');
+      }
+
+      console.log('\n--- Domains ---');
+      if (app.domains?.length) {
+        app.domains.forEach(d => {
+          console.log(`  ${d.https ? 'https' : 'http'}://${d.host}${d.path || ''}`);
+        });
+      } else {
+        console.log('  (none)');
+      }
+
+      console.log('\n--- Deployments (recent) ---');
+      if (app.deployments?.length) {
+        app.deployments.slice(0, 5).forEach(d => {
+          console.log(`  ${d.status.padEnd(8)} ${d.createdAt}`);
+        });
+      } else {
+        console.log('  (none)');
+      }
+
+      console.log('\n--- Mounts ---');
+      if (app.mounts?.length) {
+        app.mounts.forEach(m => {
+          console.log(`  ${m.type}: ${m.hostPath || '(volume)'} -> ${m.mountPath}`);
+        });
+      } else {
+        console.log('  (none)');
+      }
+
+      console.log('\n--- Ports ---');
+      if (app.ports?.length) {
+        app.ports.forEach(p => {
+          console.log(`  ${p.publishedPort} -> ${p.targetPort}/${p.protocol}`);
+        });
+      } else {
+        console.log('  (none)');
+      }
+
     } catch (err) {
       s.fail('Failed to fetch application');
       if (err instanceof ApiError) {

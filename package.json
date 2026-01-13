@@ -1,0 +1,42 @@
+{
+  "name": "dokploy-cli",
+  "version": "0.2.0",
+  "description": "CLI for Dokploy - self-hosted deployment platform",
+  "type": "module",
+  "bin": {
+    "dokploy": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target node",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "picocolors": "^1.1.1",
+    "ora": "^8.1.1",
+    "@inquirer/prompts": "^7.2.1",
+    "conf": "^13.0.1",
+    "console-table-printer": "^2.12.1"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.14",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "bun": ">=1.1.0"
+  },
+  "keywords": [
+    "dokploy",
+    "cli",
+    "deployment",
+    "self-hosted",
+    "paas"
+  ],
+  "license": "MIT"
+}

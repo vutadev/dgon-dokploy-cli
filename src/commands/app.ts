@@ -16,18 +16,23 @@ appCommand
     const s = spinner('Fetching applications...').start();
 
     try {
-      let apps: Application[];
+      // Get all projects (includes environments with apps)
+      const projects = await api.get<Project[]>('/project.all');
 
+      let apps: Application[];
       if (options.project) {
-        const project = await api.post<Project & { applications: Application[] }>(
-          '/project.one',
-          { projectId: options.project }
-        );
-        apps = project.applications || [];
+        // Filter by specific project
+        const project = projects.find(p => p.projectId === options.project);
+        if (!project) {
+          s.fail(`Project ${options.project} not found`);
+          process.exit(1);
+        }
+        apps = (project.environments || []).flatMap(env => env.applications || []);
       } else {
-        // Get all projects and their applications
-        const projects = await api.get<(Project & { applications: Application[] })[]>('/project.all');
-        apps = projects.flatMap(p => p.applications || []);
+        // All apps from all projects
+        apps = projects.flatMap(p =>
+          (p.environments || []).flatMap(env => env.applications || [])
+        );
       }
 
       s.stop();

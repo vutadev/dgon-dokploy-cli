@@ -122,16 +122,26 @@ projectCommand
     const s = spinner('Fetching project...').start();
 
     try {
-      const project = await api.post<Project>('/project.one', { projectId });
+      // Get all projects and find the one we want
+      const projects = await api.get<Project[]>('/project.all');
+      const project = projects.find(p => p.projectId === projectId);
+
+      if (!project) {
+        s.fail(`Project ${projectId} not found`);
+        process.exit(1);
+      }
+
       s.stop();
 
       if (isJson()) {
         json(project);
       } else {
+        const appCount = (project.environments || []).flatMap(e => e.applications || []).length;
         keyValue({
           'ID': project.projectId,
           'Name': project.name,
           'Description': project.description || '-',
+          'Applications': appCount.toString(),
           'Created': project.createdAt,
         });
       }

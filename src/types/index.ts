@@ -40,12 +40,24 @@ export interface ApiResponse<T> {
   error?: string;
 }
 
+// Environment (nested in Project)
+export interface Environment {
+  environmentId: string;
+  name: string;
+  description?: string;
+  projectId: string;
+  isDefault: boolean;
+  createdAt: string;
+  applications?: Application[];
+}
+
 // Project
 export interface Project {
   projectId: string;
   name: string;
   description?: string;
   createdAt: string;
+  environments?: Environment[];
 }
 
 // Application

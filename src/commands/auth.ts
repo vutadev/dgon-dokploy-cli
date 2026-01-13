@@ -229,6 +229,79 @@ authCommand
   });
 
 authCommand
+  .command('test')
+  .description('Test API connectivity and data access (headless mode)')
+  .option('-a, --alias <name>', 'Test specific alias')
+  .option('-v, --verbose', 'Show detailed output')
+  .action(async (options) => {
+    const alias = options.alias || getActiveAlias();
+
+    if (!isConfigured(alias)) {
+      error(`Not logged in as "${alias}". Run \`dokploy auth login\` first.`);
+      process.exit(1);
+    }
+
+    const config = getConfig();
+    const results: Record<string, unknown> = {
+      alias,
+      serverUrl: config.serverUrl,
+      tests: {},
+    };
+
+    // Test 1: Connection
+    info(`Testing connection to ${config.serverUrl}...`);
+    const valid = await verifyConnection(config.serverUrl, config.apiToken);
+    (results.tests as Record<string, unknown>).connection = valid;
+    if (!valid) {
+      error('Connection failed - check server URL and API token');
+      if (isJson()) json(results);
+      process.exit(1);
+    }
+    success('✓ Connection OK');
+
+    // Test 2: Fetch projects (includes environments and apps)
+    info('Fetching projects...');
+    try {
+      const { api } = await import('../lib/api.js');
+      type ProjectWithEnvs = {
+        projectId: string;
+        name: string;
+        environments?: { applications?: { applicationId: string; name: string }[] }[];
+      };
+      const projects = await api.get<ProjectWithEnvs[]>('/project.all');
+      (results.tests as Record<string, unknown>).projects = { count: projects.length };
+      success(`✓ Projects: ${projects.length} found`);
+
+      if (options.verbose && projects.length > 0) {
+        projects.forEach(p => info(`  - ${p.name} (${p.projectId})`));
+      }
+
+      // Test 3: Extract apps from environments (already in response)
+      const allApps = projects.flatMap(p =>
+        (p.environments || []).flatMap(env => env.applications || [])
+      );
+      (results.tests as Record<string, unknown>).applications = { count: allApps.length };
+      success(`✓ Applications: ${allApps.length} found across all projects`);
+
+      if (options.verbose && allApps.length > 0) {
+        allApps.slice(0, 10).forEach(a => info(`  - ${a.name} (${a.applicationId})`));
+        if (allApps.length > 10) {
+          info(`  ... and ${allApps.length - 10} more`);
+        }
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      (results.tests as Record<string, unknown>).error = message;
+      error(`API error: ${message}`);
+      if (isJson()) json(results);
+      process.exit(1);
+    }
+
+    success('\nAll tests passed!');
+    if (isJson()) json(results);
+  });
+
+authCommand
   .command('remove <alias>')
   .description('Remove a server configuration')
   .option('-f, --force', 'Skip confirmation')

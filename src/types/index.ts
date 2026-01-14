@@ -303,14 +303,63 @@ export interface AppExport {
   };
 }
 
+// Export format for single compose service
+export interface ComposeExportData {
+  name: string;
+  description?: string;
+  composeType: 'docker-compose' | 'stack';
+  sourceType: string;
+  env: string;
+  composeFile?: string;
+  composePath?: string;
+  domains: Omit<Domain, 'domainId' | 'applicationId' | 'createdAt'>[];
+  mounts: Omit<Mount, 'mountId'>[];
+}
+
+// Export format for single database
+export interface DatabaseExportData {
+  name: string;
+  description?: string;
+  dbType: DatabaseType;
+  env: string;
+  dockerImage?: string;
+  databaseName?: string;
+  databaseUser?: string;
+  // Note: passwords should NOT be exported for security
+  externalPort?: number | null;
+  replicas: number;
+  memoryReservation?: number;
+  memoryLimit?: number;
+  mounts: Omit<Mount, 'mountId'>[];
+}
+
 // Export format for project with all applications
 export interface ProjectExport {
   version: string;
   type: 'project';
   exportedAt: string;
+  // Schema version for future migrations
+  schemaVersion?: '1.0' | '2.0';
   data: {
     name: string;
     description?: string;
     applications: AppExport['data'][];
+    // New in schemaVersion 2.0
+    compose?: ComposeExportData[];
+    databases?: DatabaseExportData[];
   };
+}
+
+// Individual resource export (for single-item exports)
+export type ResourceExport =
+  | AppExport
+  | { version: string; type: 'compose'; exportedAt: string; data: ComposeExportData }
+  | { version: string; type: 'database'; exportedAt: string; data: DatabaseExportData };
+
+// Type guard for checking export schema version
+export function isProjectExportV2(
+  exp: ProjectExport
+): exp is ProjectExport & { data: { compose: ComposeExportData[]; databases: DatabaseExportData[] } } {
+  return exp.schemaVersion === '2.0' ||
+    (Array.isArray(exp.data.compose) || Array.isArray(exp.data.databases));
 }

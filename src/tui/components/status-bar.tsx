@@ -36,7 +36,6 @@ function getContextualShortcuts(
         { key: 'D', label: 'delete' },
         { key: 'i', label: 'info' },
         { key: 'o', label: 'open' },
-        { key: 'x', label: 'export' },
         { key: 'l', label: 'logs' }
       );
     } else if (resourceType === 'database') {
@@ -67,6 +66,7 @@ function getContextualShortcuts(
   // Global actions (always available)
   if (activePanel !== 'logs') {
     shortcuts.push(
+      { key: 'x', label: 'export' },
       { key: 'I', label: 'import' },
       { key: 'P', label: 'poll' },
       { key: '/', label: 'search' }
@@ -87,14 +87,55 @@ export function StatusBar() {
     actionMessage,
     isSearching,
     showConfirm,
+    showDetailPanel,
+    showImportDialog,
+    showExportDialog,
+    showServerSelector,
+    showLoginForm,
+    servers,
     autoRefreshEnabled,
     activePanel,
     activeResource,
   } = useAppContext();
 
-  const activeShortcuts = isSearching
-    ? searchShortcuts
-    : getContextualShortcuts(activePanel, activeResource?.type);
+  const needsLogin = servers.length === 0 || showLoginForm;
+
+  // Determine which shortcuts to show based on active state
+  let activeShortcuts: Shortcut[];
+  if (showDetailPanel) {
+    // Detail panel shortcuts
+    activeShortcuts = [
+      { key: '←/→', label: 'tabs' },
+      { key: 'Esc', label: 'close' },
+    ];
+  } else if (needsLogin) {
+    // Login form shortcuts
+    activeShortcuts = [
+      { key: 'Tab', label: 'next' },
+      { key: 'Enter', label: 'connect' },
+      { key: '^S', label: 'save' },
+    ];
+    if (servers.length > 0) {
+      activeShortcuts.push({ key: 'Esc', label: 'cancel' });
+    }
+  } else if (showServerSelector) {
+    // Server selector shortcuts
+    activeShortcuts = [
+      { key: 'j/k', label: 'navigate' },
+      { key: 'Enter', label: 'select' },
+      { key: 'Esc', label: 'close' },
+    ];
+  } else if (showImportDialog || showExportDialog) {
+    // Dialog shortcuts (simplified)
+    activeShortcuts = [
+      { key: 'Enter', label: 'confirm' },
+      { key: 'Esc', label: 'cancel' },
+    ];
+  } else if (isSearching) {
+    activeShortcuts = searchShortcuts;
+  } else {
+    activeShortcuts = getContextualShortcuts(activePanel, activeResource?.type);
+  }
 
   return (
     <Box

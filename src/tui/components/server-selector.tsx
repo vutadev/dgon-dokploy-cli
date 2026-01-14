@@ -54,14 +54,19 @@ export function ServerSelector() {
     return (
       <Box
         flexDirection="column"
-        borderStyle="round"
+        flexGrow={1}
+        borderStyle="single"
         borderColor="cyan"
-        paddingX={2}
-        paddingY={1}
+        borderTop={false}
+        borderBottom={false}
+        paddingX={1}
       >
-        <Text bold color="cyan">
-          Select Server
-        </Text>
+        {/* Header */}
+        <Box paddingBottom={1}>
+          <Text bold color="cyan">
+            SELECT SERVER
+          </Text>
+        </Box>
         <Text dimColor>No servers configured. Run: dokploy server add</Text>
         <Text dimColor>[Esc] to close</Text>
       </Box>
@@ -71,15 +76,22 @@ export function ServerSelector() {
   return (
     <Box
       flexDirection="column"
-      borderStyle="round"
+      flexGrow={1}
+      borderStyle="single"
       borderColor="cyan"
-      paddingX={2}
-      paddingY={1}
+      borderTop={false}
+      borderBottom={false}
+      paddingX={1}
     >
-      <Text bold color="cyan">
-        Select Server
-      </Text>
-      <Box flexDirection="column" marginY={1}>
+      {/* Header */}
+      <Box paddingBottom={1}>
+        <Text bold color="cyan">
+          SELECT SERVER
+        </Text>
+      </Box>
+
+      {/* Server list */}
+      <Box flexDirection="column" flexGrow={1}>
         {servers.map((server, index) => {
           const isSelected = index === selectedIndex;
           const isCurrent = server.isCurrent;
@@ -101,7 +113,11 @@ export function ServerSelector() {
           );
         })}
       </Box>
-      <Text dimColor>[j/k] navigate [Enter] select [Esc] close</Text>
+
+      {/* Help text */}
+      <Box paddingTop={1}>
+        <Text dimColor>[j/k] navigate [Enter] select [Esc] close</Text>
+      </Box>
     </Box>
   );
 }

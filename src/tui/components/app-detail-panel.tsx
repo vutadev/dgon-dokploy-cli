@@ -46,7 +46,6 @@ export function AppDetailPanel() {
       borderStyle="single"
       borderColor="cyan"
       width="100%"
-      height={16}
     >
       {/* Header */}
       <Box paddingX={1} justifyContent="space-between">

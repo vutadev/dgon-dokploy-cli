@@ -103,34 +103,47 @@ export function LoginForm() {
   return (
     <Box
       flexDirection="column"
-      borderStyle="round"
+      flexGrow={1}
+      borderStyle="single"
       borderColor="cyan"
-      paddingX={2}
-      paddingY={1}
+      borderTop={false}
+      borderBottom={false}
+      paddingX={1}
     >
-      <Text bold color="cyan">
-        {isConfigured ? 'Add Server' : 'Welcome to Dokploy CLI'}
-      </Text>
+      {/* Header */}
+      <Box paddingBottom={1}>
+        <Text bold color="cyan">
+          {isConfigured ? 'ADD SERVER' : 'WELCOME TO DOKPLOY CLI'}
+        </Text>
+      </Box>
 
       {!isConfigured && (
-        <Text dimColor>Connect to your Dokploy server to get started</Text>
+        <Box paddingBottom={1}>
+          <Text dimColor>Connect to your Dokploy server to get started</Text>
+        </Box>
       )}
 
-      <Box flexDirection="column" marginY={1}>
+      {/* Form fields */}
+      <Box flexDirection="column" flexGrow={1}>
         {renderField('url', 'Server URL')}
         {renderField('token', 'API Token', true)}
         {renderField('alias', 'Alias')}
+
+        {error && (
+          <Box marginTop={1}>
+            <Text color="red">✗ {error}</Text>
+          </Box>
+        )}
+
+        {isVerifying && (
+          <Box marginTop={1}>
+            <Text color="yellow">⟳ Verifying connection...</Text>
+          </Box>
+        )}
       </Box>
 
-      {error && (
-        <Text color="red">✗ {error}</Text>
-      )}
-
-      {isVerifying && (
-        <Text color="yellow">⟳ Verifying connection...</Text>
-      )}
-
-      <Box marginTop={1}>
+      {/* Help text */}
+      <Box paddingTop={1}>
         <Text dimColor>
           [Tab] next  [Enter] connect  [^S] save without verify
           {isConfigured && '  [Esc] cancel'}

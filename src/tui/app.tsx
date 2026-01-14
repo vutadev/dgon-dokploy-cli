@@ -1,6 +1,5 @@
 import { render } from 'ink';
 import { useCallback } from 'react';
-import { writeFile } from 'fs/promises';
 import { Layout } from './components/layout.js';
 import { AppProvider, useAppContext } from './context/app-context.js';
 import { useProjects } from './hooks/use-projects.js';
@@ -15,9 +14,9 @@ import { useConfirm } from './hooks/use-confirm.js';
 import { useDetail } from './hooks/use-detail.js';
 import { useAutoRefresh } from './hooks/use-auto-refresh.js';
 import { useImport } from './hooks/use-import.js';
+import { useExport } from './hooks/use-export.js';
 import { useOpenBrowser } from './hooks/use-open-browser.js';
 import { api } from '../lib/api.js';
-import type { ApplicationFull, AppExport } from '../types/index.js';
 
 /**
  * Inner app component that wires up all hooks
@@ -26,7 +25,6 @@ function TUIApp() {
   // Context
   const {
     activeApp,
-    activeProject,
     activeResource,
     setActionMessage,
     setActionRunning,
@@ -62,6 +60,9 @@ function TUIApp() {
 
   // Import hooks
   const { openImportDialog, showImportDialog } = useImport();
+
+  // Export hooks
+  const { openExportDialog, showExportDialog } = useExport();
 
   // Browser hooks
   const { openBrowser } = useOpenBrowser();
@@ -207,58 +208,6 @@ function TUIApp() {
     );
   }, [activeApp, requestConfirm, setActionMessage, refreshProjects]);
 
-  // Export current app
-  const handleExport = useCallback(async () => {
-    if (!activeApp) return;
-    const filename = `${activeApp.name}-export.json`;
-    try {
-      const fullApp = await api.getWithParams<ApplicationFull>('/application.one', {
-        applicationId: activeApp.applicationId,
-      });
-      const exportData: AppExport = {
-        version: '1.0',
-        type: 'application',
-        exportedAt: new Date().toISOString(),
-        source: activeProject ? {
-          applicationId: activeApp.applicationId,
-          projectId: activeProject.projectId,
-          projectName: activeProject.name,
-        } : undefined,
-        data: {
-          name: fullApp.name,
-          description: fullApp.description,
-          buildType: fullApp.buildType,
-          sourceType: fullApp.sourceType,
-          env: fullApp.env || '',
-          dockerfile: fullApp.dockerfile,
-          dockerImage: fullApp.dockerImage,
-          replicas: fullApp.replicas,
-          domains: (fullApp.domains || []).map(d => ({
-            host: d.host,
-            path: d.path,
-            port: d.port,
-            https: d.https,
-            certificateType: d.certificateType,
-          })),
-          mounts: (fullApp.mounts || []).map(m => ({
-            type: m.type,
-            hostPath: m.hostPath,
-            mountPath: m.mountPath,
-            content: m.content,
-          })),
-          ports: (fullApp.ports || []).map(p => ({
-            publishedPort: p.publishedPort,
-            targetPort: p.targetPort,
-            protocol: p.protocol,
-          })),
-        },
-      };
-      await writeFile(filename, JSON.stringify(exportData, null, 2));
-      setActionMessage({ text: `Exported to ${filename}`, type: 'success' });
-    } catch {
-      setActionMessage({ text: 'Export failed', type: 'error' });
-    }
-  }, [activeApp, activeProject, setActionMessage]);
 
   // Keyboard navigation and shortcuts
   useKeyboard({
@@ -274,11 +223,11 @@ function TUIApp() {
     onAddServer: openLoginForm,
     onDelete: handleDelete,
     onOpenDetail: openDetail,
-    onExport: handleExport,
+    onExport: openExportDialog,
     onImport: openImportDialog,
     onTogglePolling: toggleAutoRefresh,
     onOpenBrowser: openBrowser,
-    disabled: isRunning || isSearching || showServerSelector || showLoginForm || showConfirm || showDetailPanel || showImportDialog,
+    disabled: isRunning || isSearching || showServerSelector || showLoginForm || showConfirm || showDetailPanel || showImportDialog || showExportDialog,
   });
 
   return <Layout />;

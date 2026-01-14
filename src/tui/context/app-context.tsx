@@ -56,6 +56,10 @@ interface AppState {
   showImportDialog: boolean;
   importFiles: string[];
   importSelectedIndex: number;
+  importStep: 'path' | 'select';
+  // Export dialog state
+  showExportDialog: boolean;
+  exportStep: 'select' | 'path';
 }
 
 interface AppContextValue extends AppState {
@@ -86,6 +90,9 @@ interface AppContextValue extends AppState {
   setShowImportDialog: (show: boolean) => void;
   setImportFiles: (files: string[]) => void;
   setImportSelectedIndex: (index: number) => void;
+  setImportStep: (step: 'path' | 'select') => void;
+  setShowExportDialog: (show: boolean) => void;
+  setExportStep: (step: 'select' | 'path') => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -127,6 +134,9 @@ export function AppProvider({ children }: AppProviderProps) {
     showImportDialog: false,
     importFiles: [],
     importSelectedIndex: 0,
+    importStep: 'path',
+    showExportDialog: false,
+    exportStep: 'select',
   });
 
   // Memoized setters to prevent infinite loops in useEffect dependencies
@@ -157,6 +167,9 @@ export function AppProvider({ children }: AppProviderProps) {
   const setShowImportDialog = useCallback((showImportDialog: boolean) => setState((s) => ({ ...s, showImportDialog })), []);
   const setImportFiles = useCallback((importFiles: string[]) => setState((s) => ({ ...s, importFiles })), []);
   const setImportSelectedIndex = useCallback((importSelectedIndex: number) => setState((s) => ({ ...s, importSelectedIndex })), []);
+  const setImportStep = useCallback((importStep: 'path' | 'select') => setState((s) => ({ ...s, importStep })), []);
+  const setShowExportDialog = useCallback((showExportDialog: boolean) => setState((s) => ({ ...s, showExportDialog })), []);
+  const setExportStep = useCallback((exportStep: 'select' | 'path') => setState((s) => ({ ...s, exportStep })), []);
 
   const value: AppContextValue = useMemo(() => ({
     ...state,
@@ -187,7 +200,10 @@ export function AppProvider({ children }: AppProviderProps) {
     setShowImportDialog,
     setImportFiles,
     setImportSelectedIndex,
-  }), [state, setActiveProject, setActiveEnvironment, setActiveApp, setActiveResource, setActivePanel, setProjects, setApps, setResources, setLoading, setError, setActionRunning, setActionMessage, setSearchQuery, setIsSearching, setServers, setCurrentServerAlias, setShowServerSelector, setShowLoginForm, setShowConfirm, setConfirmMessage, setShowDetailPanel, setDetailApp, setDetailData, setAutoRefreshEnabled, setShowImportDialog, setImportFiles, setImportSelectedIndex]);
+    setImportStep,
+    setShowExportDialog,
+    setExportStep,
+  }), [state, setActiveProject, setActiveEnvironment, setActiveApp, setActiveResource, setActivePanel, setProjects, setApps, setResources, setLoading, setError, setActionRunning, setActionMessage, setSearchQuery, setIsSearching, setServers, setCurrentServerAlias, setShowServerSelector, setShowLoginForm, setShowConfirm, setConfirmMessage, setShowDetailPanel, setDetailApp, setDetailData, setAutoRefreshEnabled, setShowImportDialog, setImportFiles, setImportSelectedIndex, setImportStep, setShowExportDialog, setExportStep]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

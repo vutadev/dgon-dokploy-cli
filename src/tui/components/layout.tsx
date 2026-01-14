@@ -9,6 +9,7 @@ import { ServerSelector } from './server-selector.js';
 import { LoginForm } from './login-form.js';
 import { AppDetailPanel } from './app-detail-panel.js';
 import { ImportDialog } from './import-dialog.js';
+import { ExportDialog } from './export-dialog.js';
 import { useTerminalSize } from '../hooks/use-terminal-size.js';
 import { useAppContext } from '../context/app-context.js';
 
@@ -18,7 +19,7 @@ import { useAppContext } from '../context/app-context.js';
  */
 export function Layout() {
   const { rows } = useTerminalSize();
-  const { activePanel, isSearching, showServerSelector, showLoginForm, showDetailPanel, showImportDialog, servers } = useAppContext();
+  const { activePanel, isSearching, showServerSelector, showLoginForm, showDetailPanel, showImportDialog, showExportDialog, servers } = useAppContext();
 
   // Show login form if no servers configured OR user requested it
   const needsLogin = servers.length === 0 || showLoginForm;
@@ -28,29 +29,39 @@ export function Layout() {
   const contentHeight = Math.max(rows - 6 - searchHeight, 10);
   const showLogs = activePanel === 'logs';
 
-  // Login form takes over the whole screen
-  if (needsLogin) {
-    return (
-      <Box flexDirection="column" alignItems="center" justifyContent="center" height={rows}>
-        <LoginForm />
-      </Box>
-    );
-  }
-
   return (
     <Box flexDirection="column">
       <Header />
       {isSearching && <SearchInput />}
-      {showServerSelector && <ServerSelector />}
-      {showImportDialog && <ImportDialog />}
+
+      {/* Main content area - dialogs render inside this space */}
       {showDetailPanel ? (
-        <AppDetailPanel />
+        <Box height={contentHeight}>
+          <AppDetailPanel />
+        </Box>
+      ) : showImportDialog ? (
+        <Box height={contentHeight}>
+          <ImportDialog />
+        </Box>
+      ) : showExportDialog ? (
+        <Box height={contentHeight}>
+          <ExportDialog />
+        </Box>
       ) : (
         <Box height={contentHeight}>
           <Sidebar />
-          {showLogs ? <LogViewer /> : <MainContent />}
+          {needsLogin ? (
+            <LoginForm />
+          ) : showServerSelector ? (
+            <ServerSelector />
+          ) : showLogs ? (
+            <LogViewer />
+          ) : (
+            <MainContent />
+          )}
         </Box>
       )}
+
       <StatusBar />
     </Box>
   );

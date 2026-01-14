@@ -23,10 +23,12 @@ authCommand
   .option('-s, --server <url>', 'Server URL')
   .option('-t, --token <token>', 'API token')
   .option('-a, --alias <name>', 'Server alias (default: "default")', 'default')
+  .option('--skip-verify', 'Save credentials without verifying connection')
   .action(async (options) => {
     let serverUrl = options.server;
     let apiToken = options.token;
     const alias = options.alias;
+    const skipVerify = options.skipVerify;
 
     if (!serverUrl) {
       serverUrl = await input({
@@ -51,12 +53,28 @@ authCommand
       });
     }
 
+    // Skip verification if requested
+    if (skipVerify) {
+      setServerConfig(alias, { serverUrl, apiToken });
+      setCurrentAlias(alias);
+
+      if (isJson()) {
+        json({ success: true, alias, serverUrl, verified: false });
+      } else {
+        success(`Credentials saved as "${alias}" (unverified)`);
+        info(`Config saved to ${getConfigPath()}`);
+        info('Run `dokploy auth verify` to test the connection.');
+      }
+      return;
+    }
+
     const s = spinner('Verifying connection...').start();
 
     const valid = await verifyConnection(serverUrl, apiToken);
 
     if (valid) {
       setServerConfig(alias, { serverUrl, apiToken });
+      setCurrentAlias(alias);
       s.succeed('Connected successfully');
 
       if (isJson()) {
@@ -68,6 +86,7 @@ authCommand
     } else {
       s.fail('Connection failed');
       error('Could not connect. Check server URL and token.');
+      info('Use --skip-verify to save credentials without verification.');
       process.exit(1);
     }
   });

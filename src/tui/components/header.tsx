@@ -21,16 +21,27 @@ export function Header() {
       <Text bold color="cyan">
         Dokploy CLI v0.2.0
       </Text>
-      <Box>
-        <Text dimColor>[</Text>
-        <Text color="yellow">{alias}</Text>
-        <Text dimColor>:</Text>
-        <Text>{serverName}</Text>
-        {servers.length > 1 && <Text dimColor> M:switch</Text>}
-        <Text dimColor>] </Text>
-        <Text dimColor>[</Text>
-        <Text color="blue">?</Text>
-        <Text dimColor>] help</Text>
+      <Box gap={1}>
+        <Box>
+          <Text dimColor>[</Text>
+          <Text color="yellow">{alias}</Text>
+          <Text dimColor>:</Text>
+          <Text>{serverName}</Text>
+          <Text dimColor>]</Text>
+        </Box>
+        <Box>
+          <Text dimColor>[</Text>
+          <Text color="green">M</Text>
+          <Text dimColor>]switch </Text>
+          <Text dimColor>[</Text>
+          <Text color="green">A</Text>
+          <Text dimColor>]add</Text>
+        </Box>
+        <Box>
+          <Text dimColor>[</Text>
+          <Text color="blue">?</Text>
+          <Text dimColor>]help</Text>
+        </Box>
       </Box>
     </Box>
   );

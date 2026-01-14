@@ -1,5 +1,21 @@
 import { useCallback, useMemo } from 'react';
 import { useAppContext } from '../context/app-context.js';
+import type { Resource } from '../../types/index.js';
+
+// Get resource name for search
+const getResourceName = (resource: Resource): string => resource.data.name;
+
+// Get resource status for search
+const getResourceStatus = (resource: Resource): string => {
+  switch (resource.type) {
+    case 'application':
+      return resource.data.applicationStatus;
+    case 'database':
+      return resource.data.applicationStatus; // API uses applicationStatus for DBs
+    case 'compose':
+      return resource.data.composeStatus;
+  }
+};
 
 /**
  * Simple fuzzy match - checks if all characters in query appear in text in order
@@ -47,6 +63,7 @@ export function useSearch() {
   const {
     projects,
     apps,
+    resources,
     searchQuery,
     isSearching,
     setSearchQuery,
@@ -78,6 +95,22 @@ export function useSearch() {
       .sort((a, b) => matchScore(b.name, searchQuery) - matchScore(a.name, searchQuery));
   }, [apps, searchQuery]);
 
+  // Filter and sort resources by search query (searches name, status, type)
+  const filteredResources = useMemo(() => {
+    if (!searchQuery) return resources;
+
+    return resources
+      .filter((r) => {
+        const name = getResourceName(r);
+        const status = getResourceStatus(r);
+        const nameMatch = fuzzyMatch(name, searchQuery);
+        const statusMatch = fuzzyMatch(status, searchQuery);
+        const typeMatch = fuzzyMatch(r.type, searchQuery);
+        return nameMatch || statusMatch || typeMatch;
+      })
+      .sort((a, b) => matchScore(getResourceName(b), searchQuery) - matchScore(getResourceName(a), searchQuery));
+  }, [resources, searchQuery]);
+
   // Enter search mode
   const startSearch = useCallback(() => {
     setIsSearching(true);
@@ -99,13 +132,14 @@ export function useSearch() {
   );
 
   // Get items for current panel
-  const currentItems = activePanel === 'sidebar' ? filteredProjects : filteredApps;
+  const currentItems = activePanel === 'sidebar' ? filteredProjects : filteredResources;
 
   return {
     searchQuery,
     isSearching,
     filteredProjects,
     filteredApps,
+    filteredResources,
     currentItems,
     startSearch,
     stopSearch,

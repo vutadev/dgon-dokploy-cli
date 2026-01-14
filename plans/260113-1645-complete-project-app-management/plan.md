@@ -1,7 +1,7 @@
 # Complete Project/Application Management
 
 **Date:** 2026-01-13
-**Status:** Ready for Implementation
+**Status:** Complete
 **Approach:** Hybrid (CLI for complex ops, TUI for quick actions + read-only panels)
 
 ---
@@ -17,8 +17,8 @@ Implement comprehensive project and application management across CLI and TUI in
 | Phase | Focus | Priority | Status |
 |-------|-------|----------|--------|
 | [Phase 1](./phase-01-core-cli.md) | Core CLI (app update, app info --full, destinations) | P1 | Complete |
-| [Phase 2](./phase-02-export-import.md) | Export/Import (project clone, export/import) | P2 | Pending |
-| [Phase 3](./phase-03-tui-enhancements.md) | TUI (confirm dialog, detail panel, keys) | P3 | Pending |
+| [Phase 2](./phase-02-export-import.md) | Export/Import (project clone, export/import) | P2 | Complete |
+| [Phase 3](./phase-03-tui-enhancements.md) | TUI (confirm dialog, detail panel, keys) | P3 | Complete |
 
 ## Key Decisions
 

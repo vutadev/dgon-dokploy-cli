@@ -146,7 +146,7 @@ destinationCommand
     const s = spinner('Removing destination...').start();
 
     try {
-      await api.delete('/destination.remove', { destinationId });
+      await api.post('/destination.remove', { destinationId });
       s.succeed('Destination removed');
 
       if (isJson()) {

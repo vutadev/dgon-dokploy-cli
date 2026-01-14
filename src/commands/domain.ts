@@ -144,7 +144,7 @@ domainCommand
     const s = spinner('Removing domain...').start();
 
     try {
-      await api.delete('/domain.delete', { domainId });
+      await api.post('/domain.delete', { domainId });
       s.succeed('Domain removed');
 
       if (isJson()) {

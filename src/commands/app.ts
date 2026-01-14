@@ -1,8 +1,9 @@
 import { Command } from 'commander';
 import { input, select, confirm } from '@inquirer/prompts';
+import { readFile, writeFile } from 'fs/promises';
 import { api, ApiError } from '../lib/api.js';
 import { success, error, table, keyValue, spinner, isJson, json, info } from '../lib/output.js';
-import type { Application, ApplicationFull, Project, Deployment } from '../types/index.js';
+import type { Application, ApplicationFull, Project, Deployment, AppExport } from '../types/index.js';
 
 export const appCommand = new Command('app')
   .description('Manage applications');
@@ -144,7 +145,7 @@ appCommand
   .action(async (appId, _options) => {
     try {
       // Get latest deployment
-      const deployments = await api.post<Deployment[]>('/deployment.all', {
+      const deployments = await api.getWithParams<Deployment[]>('/deployment.all', {
         applicationId: appId,
       });
 
@@ -230,7 +231,7 @@ appCommand
     const s = spinner('Deleting application...').start();
 
     try {
-      await api.delete('/application.delete', { applicationId: appId });
+      await api.post('/application.delete', { applicationId: appId });
       s.succeed('Application deleted');
 
       if (isJson()) {
@@ -302,7 +303,7 @@ appCommand
     const s = spinner('Fetching application...').start();
 
     try {
-      const app = await api.post<ApplicationFull>('/application.one', {
+      const app = await api.getWithParams<ApplicationFull>('/application.one', {
         applicationId: appId,
       });
       s.stop();
@@ -378,6 +379,187 @@ appCommand
 
     } catch (err) {
       s.fail('Failed to fetch application');
+      if (err instanceof ApiError) {
+        error(err.message);
+      }
+      process.exit(1);
+    }
+  });
+
+appCommand
+  .command('export <appId> [file]')
+  .description('Export application configuration to JSON')
+  .action(async (appId, file) => {
+    const s = spinner('Exporting application...').start();
+
+    try {
+      const app = await api.getWithParams<ApplicationFull>('/application.one', {
+        applicationId: appId,
+      });
+
+      // Fetch project info for source reference
+      const projects = await api.get<Project[]>('/project.all');
+      const project = projects.find(p =>
+        p.environments?.some(e => e.applications?.some(a => a.applicationId === appId))
+      );
+
+      const outputFile = file || `${app.name}-export.json`;
+
+      const exportData: AppExport = {
+        version: '1.0',
+        type: 'application',
+        exportedAt: new Date().toISOString(),
+        source: project ? {
+          applicationId: appId,
+          projectId: project.projectId,
+          projectName: project.name,
+        } : undefined,
+        data: {
+          name: app.name,
+          description: app.description,
+          buildType: app.buildType,
+          sourceType: app.sourceType,
+          env: app.env || '',
+          dockerfile: app.dockerfile,
+          dockerImage: app.dockerImage,
+          replicas: app.replicas,
+          domains: (app.domains || []).map(d => ({
+            host: d.host,
+            path: d.path,
+            port: d.port,
+            https: d.https,
+            certificateType: d.certificateType,
+          })),
+          mounts: (app.mounts || []).map(m => ({
+            type: m.type,
+            hostPath: m.hostPath,
+            mountPath: m.mountPath,
+            content: m.content,
+          })),
+          ports: (app.ports || []).map(p => ({
+            publishedPort: p.publishedPort,
+            targetPort: p.targetPort,
+            protocol: p.protocol,
+          })),
+        },
+      };
+
+      await writeFile(outputFile, JSON.stringify(exportData, null, 2));
+      s.succeed('Application exported');
+
+      if (isJson()) {
+        json({ success: true, file: outputFile, applicationId: appId });
+      } else {
+        success(`Application exported to ${outputFile}`);
+        info(`Domains: ${exportData.data.domains.length}, Mounts: ${exportData.data.mounts.length}`);
+      }
+    } catch (err) {
+      s.fail('Failed to export application');
+      if (err instanceof ApiError) {
+        error(err.message);
+      }
+      process.exit(1);
+    }
+  });
+
+appCommand
+  .command('import <file>')
+  .description('Import application from JSON file')
+  .option('-p, --project <projectId>', 'Target project ID')
+  .option('-n, --name <name>', 'Override application name')
+  .option('--no-env', 'Skip environment variables')
+  .option('--no-domains', 'Skip domain configuration')
+  .option('--deploy', 'Deploy after import')
+  .action(async (file, options) => {
+    // Read and parse
+    let exportData: AppExport;
+    try {
+      const content = await readFile(file, 'utf-8');
+      exportData = JSON.parse(content);
+    } catch {
+      error(`Cannot read file: ${file}`);
+      process.exit(1);
+    }
+
+    if (exportData.type !== 'application' || !exportData.version) {
+      error('Invalid export file format');
+      process.exit(1);
+    }
+
+    // Get project
+    let projectId = options.project;
+    if (!projectId) {
+      const projects = await api.get<Project[]>('/project.all');
+      if (projects.length === 0) {
+        error('No projects found. Create a project first.');
+        process.exit(1);
+      }
+      projectId = await select({
+        message: 'Select target project:',
+        choices: projects.map(p => ({ name: p.name, value: p.projectId })),
+      });
+    }
+
+    const appName = options.name || exportData.data.name;
+    const s = spinner(`Importing "${appName}"...`).start();
+
+    try {
+      // Create app
+      const app = await api.post<Application>('/application.create', {
+        projectId,
+        name: appName,
+        description: exportData.data.description,
+      });
+
+      // Update settings
+      await api.post('/application.update', {
+        applicationId: app.applicationId,
+        buildType: exportData.data.buildType,
+        replicas: exportData.data.replicas,
+        dockerImage: exportData.data.dockerImage,
+        dockerfile: exportData.data.dockerfile,
+      });
+
+      // Environment
+      if (!options.noEnv && exportData.data.env) {
+        await api.post('/application.saveEnvironment', {
+          applicationId: app.applicationId,
+          env: exportData.data.env,
+        });
+      }
+
+      // Domains
+      if (!options.noDomains && exportData.data.domains?.length) {
+        for (const domain of exportData.data.domains) {
+          await api.post('/domain.create', {
+            applicationId: app.applicationId,
+            host: domain.host,
+            path: domain.path,
+            https: domain.https,
+            certificateType: domain.certificateType,
+          });
+        }
+      }
+
+      // Optional deploy
+      if (options.deploy) {
+        await api.post('/application.deploy', { applicationId: app.applicationId });
+      }
+
+      s.succeed('Application imported');
+
+      if (isJson()) {
+        json({ success: true, applicationId: app.applicationId, deployed: !!options.deploy });
+      } else {
+        success(`Application "${appName}" imported`);
+        keyValue({
+          'ID': app.applicationId,
+          'Domains': exportData.data.domains?.length || 0,
+        });
+        if (options.deploy) info('Deployment started');
+      }
+    } catch (err) {
+      s.fail('Failed to import application');
       if (err instanceof ApiError) {
         error(err.message);
       }

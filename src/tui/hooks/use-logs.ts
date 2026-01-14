@@ -30,7 +30,7 @@ export function useLogs() {
       // Try to get logs from deployment endpoint
       // Note: Actual log content would need a specific logs endpoint
       // For now, we show deployment status as log entries
-      const deployments = await api.post<Array<{
+      const deployments = await api.getWithParams<Array<{
         deploymentId: string;
         status: string;
         createdAt: string;

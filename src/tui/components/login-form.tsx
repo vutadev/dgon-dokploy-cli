@@ -50,9 +50,15 @@ export function LoginForm() {
         return;
       }
 
-      // Enter - submit
+      // Enter - submit with verification
       if (key.return) {
-        handleSubmit();
+        handleSubmit(false);
+        return;
+      }
+
+      // Ctrl+S - save without verification
+      if (key.ctrl && input === 's') {
+        handleSubmit(true);
         return;
       }
 
@@ -72,8 +78,8 @@ export function LoginForm() {
     { isActive: true }
   );
 
-  const handleSubmit = async () => {
-    const result = await login(values.url, values.token, values.alias);
+  const handleSubmit = async (skipVerify = false) => {
+    const result = await login(values.url, values.token, values.alias, skipVerify);
     if (!result.success) {
       setError(result.error || 'Login failed');
     }
@@ -126,7 +132,7 @@ export function LoginForm() {
 
       <Box marginTop={1}>
         <Text dimColor>
-          [Tab] next field  [Enter] connect
+          [Tab] next  [Enter] connect  [^S] save without verify
           {isConfigured && '  [Esc] cancel'}
         </Text>
       </Box>

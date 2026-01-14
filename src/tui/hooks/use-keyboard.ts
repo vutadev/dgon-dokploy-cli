@@ -13,6 +13,12 @@ interface KeyboardOptions {
   onStartSearch?: () => void;
   onToggleServerSelector?: () => void;
   onAddServer?: () => void;
+  onDelete?: () => void;
+  onOpenDetail?: () => void;
+  onExport?: () => void;
+  onImport?: () => void;
+  onTogglePolling?: () => void;
+  onOpenBrowser?: () => void;
   disabled?: boolean;
 }
 
@@ -24,12 +30,15 @@ export function useKeyboard(options: KeyboardOptions = {}) {
   const { exit } = useApp();
   const {
     projects,
-    apps,
+    resources,
     activeProject,
-    activeApp,
+    activeEnvironment,
+    activeResource,
     activePanel,
     setActiveProject,
+    setActiveEnvironment,
     setActiveApp,
+    setActiveResource,
     setActivePanel,
   } = useAppContext();
 
@@ -44,10 +53,25 @@ export function useKeyboard(options: KeyboardOptions = {}) {
     onStartSearch,
     onToggleServerSelector,
     onAddServer,
+    onDelete,
+    onOpenDetail,
+    onExport,
+    onImport,
+    onTogglePolling,
+    onOpenBrowser,
     disabled,
   } = options;
 
-  // Navigation helper
+  // Get resource ID for comparison
+  const getResourceId = (r: typeof resources[0]): string => {
+    switch (r.type) {
+      case 'application': return `app:${r.data.applicationId}`;
+      case 'database': return `db:${r.data.id}`;
+      case 'compose': return `compose:${r.data.composeId}`;
+    }
+  };
+
+  // Navigation helper - navigates resources in main panel
   const navigate = useCallback(
     (direction: 1 | -1) => {
       if (activePanel === 'sidebar' && projects.length > 0) {
@@ -59,18 +83,38 @@ export function useKeyboard(options: KeyboardOptions = {}) {
           Math.min(projects.length - 1, currentIndex + direction)
         );
         setActiveProject(projects[newIndex]);
-      } else if (activePanel === 'main' && apps.length > 0) {
-        const currentIndex = apps.findIndex(
-          (a) => a.applicationId === activeApp?.applicationId
-        );
+      } else if (activePanel === 'main' && resources.length > 0) {
+        const currentIndex = activeResource
+          ? resources.findIndex((r) => getResourceId(r) === getResourceId(activeResource))
+          : -1;
         const newIndex = Math.max(
           0,
-          Math.min(apps.length - 1, currentIndex + direction)
+          Math.min(resources.length - 1, currentIndex + direction)
         );
-        setActiveApp(apps[newIndex]);
+        const newResource = resources[newIndex];
+        setActiveResource(newResource);
+        // Also update activeApp if it's an application
+        if (newResource.type === 'application') {
+          setActiveApp(newResource.data);
+        }
       }
     },
-    [activePanel, projects, apps, activeProject, activeApp, setActiveProject, setActiveApp]
+    [activePanel, projects, resources, activeProject, activeResource, setActiveProject, setActiveResource, setActiveApp]
+  );
+
+  // Cycle through environments for current project
+  const cycleEnvironment = useCallback(
+    (direction: 1 | -1) => {
+      if (!activeProject?.environments || activeProject.environments.length === 0) return;
+
+      const environments = activeProject.environments;
+      const currentIndex = activeEnvironment
+        ? environments.findIndex((e) => e.environmentId === activeEnvironment.environmentId)
+        : -1;
+      const newIndex = (currentIndex + direction + environments.length) % environments.length;
+      setActiveEnvironment(environments[newIndex]);
+    },
+    [activeProject, activeEnvironment, setActiveEnvironment]
   );
 
   // Switch between sidebar and main panels
@@ -82,14 +126,16 @@ export function useKeyboard(options: KeyboardOptions = {}) {
     }
   }, [activePanel, setActivePanel]);
 
-  // Toggle logs panel
+  // Toggle logs panel (only for applications)
   const toggleLogs = useCallback(() => {
     if (activePanel === 'logs') {
       setActivePanel('main');
-    } else if (activeApp) {
+    } else if (activeResource?.type === 'application') {
+      // Ensure activeApp is set when opening logs panel
+      setActiveApp(activeResource.data);
       setActivePanel('logs');
     }
-  }, [activePanel, activeApp, setActivePanel]);
+  }, [activePanel, activeResource, setActivePanel, setActiveApp]);
 
   useInput(
     (input, key) => {
@@ -128,6 +174,12 @@ export function useKeyboard(options: KeyboardOptions = {}) {
       // Refresh
       if (input === 'R' && onRefresh) {
         onRefresh();
+        return;
+      }
+
+      // Toggle polling auto-refresh
+      if (input === 'P' && onTogglePolling) {
+        onTogglePolling();
         return;
       }
 
@@ -172,24 +224,95 @@ export function useKeyboard(options: KeyboardOptions = {}) {
         return;
       }
 
-      // App actions (only when app is selected and in main panel)
-      if (activeApp && activePanel === 'main') {
-        if (input === 'd' && onDeploy) {
-          onDeploy();
+      // Environment cycling (e/E in sidebar)
+      if (activePanel === 'sidebar' && activeProject) {
+        if (input === 'e') {
+          cycleEnvironment(1);
           return;
         }
-        if (input === 's' && onStop) {
-          onStop();
+        if (input === 'E') {
+          cycleEnvironment(-1);
           return;
         }
-        if (input === 'S' && onStart) {
-          onStart();
+      }
+
+      // Resource actions (only when resource is selected and in main panel)
+      if (activeResource && activePanel === 'main') {
+        // Application-specific actions
+        if (activeResource.type === 'application') {
+          if (input === 'd' && onDeploy) {
+            onDeploy();
+            return;
+          }
+          if (input === 's' && onStop) {
+            onStop();
+            return;
+          }
+          if (input === 'S' && onStart) {
+            onStart();
+            return;
+          }
+          if (input === 'r' && onRestart) {
+            onRestart();
+            return;
+          }
+          // Delete with confirm (D key)
+          if (input === 'D' && onDelete) {
+            onDelete();
+            return;
+          }
+          // Export (x key)
+          if (input === 'x' && onExport) {
+            onExport();
+            return;
+          }
+        }
+
+        // Info panel (i key) - works for all resource types
+        if (input === 'i' && onOpenDetail) {
+          onOpenDetail();
           return;
         }
-        if (input === 'r' && onRestart) {
-          onRestart();
+
+        // Database actions (start/stop only)
+        if (activeResource.type === 'database') {
+          if (input === 's' && onStop) {
+            onStop();
+            return;
+          }
+          if (input === 'S' && onStart) {
+            onStart();
+            return;
+          }
+        }
+
+        // Compose actions (deploy/start/stop)
+        if (activeResource.type === 'compose') {
+          if (input === 'd' && onDeploy) {
+            onDeploy();
+            return;
+          }
+          if (input === 's' && onStop) {
+            onStop();
+            return;
+          }
+          if (input === 'S' && onStart) {
+            onStart();
+            return;
+          }
+        }
+
+        // Import (I key) - works for any resource type in main panel
+        if (input === 'I' && onImport) {
+          onImport();
           return;
         }
+      }
+
+      // Open in browser (o key) - works in sidebar or main panel
+      if (input === 'o' && onOpenBrowser && activePanel !== 'logs') {
+        onOpenBrowser();
+        return;
       }
     },
     { isActive: !disabled }
@@ -199,5 +322,6 @@ export function useKeyboard(options: KeyboardOptions = {}) {
     navigate,
     switchPanel,
     toggleLogs,
+    cycleEnvironment,
   };
 }

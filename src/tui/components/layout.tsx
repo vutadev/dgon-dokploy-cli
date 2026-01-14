@@ -7,16 +7,18 @@ import { StatusBar } from './status-bar.js';
 import { SearchInput } from './search-input.js';
 import { ServerSelector } from './server-selector.js';
 import { LoginForm } from './login-form.js';
+import { AppDetailPanel } from './app-detail-panel.js';
+import { ImportDialog } from './import-dialog.js';
 import { useTerminalSize } from '../hooks/use-terminal-size.js';
 import { useAppContext } from '../context/app-context.js';
 
 /**
  * Main TUI layout with header, sidebar, main content/logs, and status bar
- * Shows log viewer when logs panel is active, otherwise shows main content
+ * Shows log viewer when logs panel is active, detail panel when info is active
  */
 export function Layout() {
   const { rows } = useTerminalSize();
-  const { activePanel, isSearching, showServerSelector, showLoginForm, servers } = useAppContext();
+  const { activePanel, isSearching, showServerSelector, showLoginForm, showDetailPanel, showImportDialog, servers } = useAppContext();
 
   // Show login form if no servers configured OR user requested it
   const needsLogin = servers.length === 0 || showLoginForm;
@@ -40,10 +42,15 @@ export function Layout() {
       <Header />
       {isSearching && <SearchInput />}
       {showServerSelector && <ServerSelector />}
-      <Box height={contentHeight}>
-        <Sidebar />
-        {showLogs ? <LogViewer /> : <MainContent />}
-      </Box>
+      {showImportDialog && <ImportDialog />}
+      {showDetailPanel ? (
+        <AppDetailPanel />
+      ) : (
+        <Box height={contentHeight}>
+          <Sidebar />
+          {showLogs ? <LogViewer /> : <MainContent />}
+        </Box>
+      )}
       <StatusBar />
     </Box>
   );

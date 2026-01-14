@@ -1,9 +1,10 @@
 import { Box, Text } from 'ink';
 import { useAppContext } from '../context/app-context.js';
 import { useSearch } from '../hooks/use-search.js';
+import type { Resource, ResourceStatus } from '../../types/index.js';
 
 // Status color and icon mapping
-const statusDisplay = (status: string) => {
+const statusDisplay = (status: ResourceStatus) => {
   switch (status) {
     case 'running':
       return { color: 'green' as const, icon: '●' };
@@ -18,15 +19,82 @@ const statusDisplay = (status: string) => {
   }
 };
 
+// Resource type icons and labels
+const resourceTypeDisplay = (resource: Resource) => {
+  switch (resource.type) {
+    case 'application':
+      return { icon: '◉', label: 'app', color: 'cyan' as const };
+    case 'database':
+      return { icon: '◆', label: resource.dbType.slice(0, 5), color: 'magenta' as const };
+    case 'compose':
+      return { icon: '▸', label: 'compose', color: 'yellow' as const };
+    default:
+      return { icon: '○', label: '?', color: 'gray' as const };
+  }
+};
+
+// Get resource ID for selection comparison
+const getResourceId = (resource: Resource): string => {
+  switch (resource.type) {
+    case 'application':
+      return `app:${resource.data.applicationId}`;
+    case 'database':
+      return `db:${resource.data.id}`; // id is resolved in use-apps.ts
+    case 'compose':
+      return `compose:${resource.data.composeId}`;
+  }
+};
+
+// Get resource status
+const getResourceStatus = (resource: Resource): ResourceStatus => {
+  switch (resource.type) {
+    case 'application':
+      return resource.data.applicationStatus;
+    case 'database':
+      return resource.data.applicationStatus; // API uses applicationStatus for DBs too
+    case 'compose':
+      return resource.data.composeStatus;
+  }
+};
+
+// Get resource name
+const getResourceName = (resource: Resource): string => {
+  return resource.data.name;
+};
+
+// Get resource info (type-specific details)
+const getResourceInfo = (resource: Resource): string => {
+  switch (resource.type) {
+    case 'application':
+      return resource.data.buildType;
+    case 'database':
+      return resource.dbType;
+    case 'compose':
+      return resource.data.composeType;
+  }
+};
+
+// Get resource source
+const getResourceSource = (resource: Resource): string => {
+  switch (resource.type) {
+    case 'application':
+      return resource.data.sourceType;
+    case 'database':
+      return '-';
+    case 'compose':
+      return resource.data.sourceType;
+  }
+};
+
 /**
- * Main content area showing apps list
- * Displays app name, status, build type, source
+ * Main content area showing unified resource list
+ * Displays apps, databases, and compose with type icons
  */
 export function MainContent() {
-  const { activePanel, activeProject, apps, activeApp, isLoading } = useAppContext();
-  const { filteredApps, searchQuery } = useSearch();
+  const { activePanel, activeProject, activeEnvironment, resources, activeResource } = useAppContext();
+  const { filteredResources, searchQuery } = useSearch();
   const isActive = activePanel === 'main';
-  const displayApps = searchQuery ? filteredApps : apps;
+  const displayResources = searchQuery ? filteredResources : resources;
 
   return (
     <Box
@@ -41,74 +109,111 @@ export function MainContent() {
       <Box paddingX={1} justifyContent="space-between">
         <Box>
           <Text bold color={isActive ? 'cyan' : undefined}>
-            APPLICATIONS
+            RESOURCES
           </Text>
           {activeProject && (
-            <Text dimColor> in {activeProject.name}</Text>
+            <Text dimColor>
+              {' '}in {activeProject.name}
+              <Text color="yellow"> [{activeEnvironment?.name || 'production'}]</Text>
+            </Text>
           )}
         </Box>
-        <Text dimColor>({displayApps.length})</Text>
+        <Text dimColor>({displayResources.length})</Text>
       </Box>
 
       {/* Column headers */}
-      {displayApps.length > 0 && (
+      {displayResources.length > 0 && (
         <Box paddingX={1} gap={1}>
-          <Text dimColor>{'  '}NAME</Text>
+          <Box width={3}>
+            <Text dimColor>T</Text>
+          </Box>
+          <Box width={24}>
+            <Text dimColor>NAME</Text>
+          </Box>
           <Box width={12}>
             <Text dimColor>STATUS</Text>
           </Box>
-          <Box width={12}>
-            <Text dimColor>BUILD</Text>
+          <Box width={15}>
+            <Text dimColor>TYPE</Text>
           </Box>
-          <Text dimColor>SOURCE</Text>
+          <Box width={15}>
+            <Text dimColor>SOURCE</Text>
+          </Box>
         </Box>
       )}
 
-      {/* App list */}
+      {/* Resource list */}
       <Box flexDirection="column" paddingX={1} flexGrow={1} overflowY="hidden">
         {!activeProject ? (
           <Text dimColor>← Select a project</Text>
-        ) : isLoading ? (
-          <Text dimColor>Loading apps...</Text>
-        ) : displayApps.length === 0 ? (
-          <Text dimColor>{searchQuery ? 'No matches' : 'No applications in this project'}</Text>
+        ) : displayResources.length === 0 ? (
+          <Text dimColor>{searchQuery ? 'No matches' : 'No resources in this project'}</Text>
         ) : (
-          displayApps.map((app) => {
-            const isSelected = activeApp?.applicationId === app.applicationId;
-            const status = statusDisplay(app.applicationStatus);
+          displayResources.map((resource) => {
+            const resourceId = getResourceId(resource);
+            const isSelected = activeResource && getResourceId(activeResource) === resourceId;
+            const status = statusDisplay(getResourceStatus(resource));
+            const typeInfo = resourceTypeDisplay(resource);
 
             return (
-              <Box key={app.applicationId} gap={1}>
+              <Box key={resourceId} gap={1}>
+                {/* Type icon */}
+                <Box width={3}>
+                  <Text color={typeInfo.color}>{typeInfo.icon}</Text>
+                </Box>
+                {/* Name */}
                 <Text
                   color={isSelected ? 'cyan' : undefined}
-                  bold={isSelected}
-                  inverse={isSelected && isActive}
+                  bold={isSelected ?? false}
+                  inverse={(isSelected && isActive) ?? false}
                 >
-                  {isSelected ? '>' : ' '} {app.name.padEnd(14).slice(0, 14)}
+                  {isSelected ? '>' : ' '}{getResourceName(resource).padEnd(23).slice(0, 23)}
                 </Text>
+                {/* Status */}
                 <Box width={12}>
                   <Text color={status.color}>
-                    {status.icon} {app.applicationStatus}
+                    {status.icon} {getResourceStatus(resource)}
                   </Text>
                 </Box>
-                <Box width={12}>
-                  <Text dimColor>{app.buildType}</Text>
+                {/* Type info */}
+                <Box width={15}>
+                  <Text dimColor>{getResourceInfo(resource)}</Text>
                 </Box>
-                <Text dimColor>{app.sourceType}</Text>
+                {/* Source */}
+                <Box width={15}>
+                  <Text dimColor>{getResourceSource(resource)}</Text>
+                </Box>
               </Box>
             );
           })
         )}
       </Box>
 
-      {/* Action hints when app selected */}
-      {isActive && activeApp && (
+      {/* Action hints when resource selected */}
+      {isActive && activeResource && (
         <Box paddingX={1} gap={2}>
           <Text dimColor>
-            <Text color="yellow">d</Text>eploy{' '}
-            <Text color="yellow">s</Text>top{' '}
-            <Text color="yellow">S</Text>tart{' '}
-            <Text color="yellow">r</Text>estart
+            {activeResource.type === 'application' && (
+              <>
+                <Text color="yellow">d</Text>eploy{' '}
+                <Text color="yellow">s</Text>top{' '}
+                <Text color="yellow">S</Text>tart{' '}
+                <Text color="yellow">r</Text>estart
+              </>
+            )}
+            {activeResource.type === 'database' && (
+              <>
+                <Text color="yellow">s</Text>top{' '}
+                <Text color="yellow">S</Text>tart
+              </>
+            )}
+            {activeResource.type === 'compose' && (
+              <>
+                <Text color="yellow">d</Text>eploy{' '}
+                <Text color="yellow">s</Text>top{' '}
+                <Text color="yellow">S</Text>tart
+              </>
+            )}
           </Text>
         </Box>
       )}

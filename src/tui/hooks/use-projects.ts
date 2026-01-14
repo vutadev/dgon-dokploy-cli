@@ -9,30 +9,45 @@ import type { Project } from '../../types/index.js';
  * Uses cache for instant startup, refreshes in background
  */
 export function useProjects() {
-  const { projects, setProjects, setLoading, setError, setActiveProject } = useAppContext();
+  const { projects, setProjects, setLoading, setError, setActiveProject, activeProject } = useAppContext();
 
-  const loadProjects = useCallback(async (useCache = true) => {
+  const loadProjects = useCallback(async (useCache = true, silent = false) => {
     // Try cache first for instant display
     if (useCache) {
       const cached = getCachedProjects();
       if (cached && cached.length > 0) {
         setProjects(cached);
-        if (cached.length > 0) {
+        if (cached.length > 0 && !activeProject) {
           setActiveProject(cached[0]);
         }
       }
     }
 
-    // Fetch fresh data
-    setLoading(true);
+    // Fetch fresh data (only show loading on initial load, not silent refresh)
+    if (!silent) {
+      setLoading(true);
+    }
     try {
       const data = await api.get<Project[]>('/project.all');
       setProjects(data);
       setCachedProjects(data);
 
       // Auto-select first project if none selected
+      // During refresh, preserve current selection if it still exists
       if (data.length > 0) {
-        setActiveProject(data[0]);
+        if (!activeProject) {
+          // No project selected, select first one
+          setActiveProject(data[0]);
+        } else {
+          // Project already selected, update to fresh data if it still exists
+          const updatedProject = data.find(p => p.projectId === activeProject.projectId);
+          if (updatedProject) {
+            setActiveProject(updatedProject);
+          } else {
+            // Selected project no longer exists, select first one
+            setActiveProject(data[0]);
+          }
+        }
       }
       return data;
     } catch (err) {
@@ -40,17 +55,19 @@ export function useProjects() {
       setError(message);
       return [];
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
-  }, [setProjects, setLoading, setError, setActiveProject]);
+  }, [setProjects, setLoading, setError, setActiveProject, activeProject]);
 
   // Load on mount (with cache)
   useEffect(() => {
-    loadProjects(true);
+    loadProjects(true, false);
   }, [loadProjects]);
 
-  // Force refresh (skip cache)
-  const refresh = useCallback(() => loadProjects(false), [loadProjects]);
+  // Force refresh (skip cache, silent - no loading indicator)
+  const refresh = useCallback(() => loadProjects(false, true), [loadProjects]);
 
   return {
     projects,

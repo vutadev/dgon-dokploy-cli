@@ -11,6 +11,7 @@ import { domainCommand } from './commands/domain.js';
 import { envCommand } from './commands/env.js';
 import { serverCommand } from './commands/server.js';
 import { destinationCommand } from './commands/destination.js';
+import { composeCommand } from './commands/compose.js';
 
 // Check if TUI mode should be launched
 const isTTY = process.stdout.isTTY;
@@ -52,6 +53,7 @@ if (isTTY && !hasSubcommand && !forceNoTUI) {
   program.addCommand(envCommand);
   program.addCommand(serverCommand);
   program.addCommand(destinationCommand);
+  program.addCommand(composeCommand);
 
   // Parse args
   program.parse();

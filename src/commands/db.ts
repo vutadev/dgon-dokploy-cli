@@ -13,6 +13,23 @@ const dbRouters: Record<DatabaseType, string> = {
   mariadb: 'mariadb',
 };
 
+// Map database type to ID field name
+const dbIdFields: Record<DatabaseType, string> = {
+  postgres: 'postgresId',
+  mysql: 'mysqlId',
+  mongo: 'mongoId',
+  redis: 'redisId',
+  mariadb: 'mariadbId',
+};
+
+// Extended database with resolved id and type for display
+interface DatabaseDisplay {
+  id: string;
+  name: string;
+  type: DatabaseType;
+  status: string;
+}
+
 export const dbCommand = new Command('db')
   .description('Manage databases');
 
@@ -25,23 +42,25 @@ dbCommand
     const s = spinner('Fetching databases...').start();
 
     try {
-      // Get all projects with their databases
-      const projects = await api.get<(Project & {
-        postgres?: Database[];
-        mysql?: Database[];
-        mongo?: Database[];
-        redis?: Database[];
-        mariadb?: Database[];
-      })[]>('/project.all');
+      // Get all projects (databases are in environments)
+      const projects = await api.get<Project[]>('/project.all');
+      const databases: DatabaseDisplay[] = [];
 
-      const databases: (Database & { type: DatabaseType })[] = [];
-
+      // Extract databases from all environments
       projects.forEach(p => {
-        (['postgres', 'mysql', 'mongo', 'redis', 'mariadb'] as const).forEach(type => {
-          const dbs = p[type as keyof typeof p] as Database[] | undefined;
-          if (dbs) {
-            dbs.forEach(db => databases.push({ ...db, type }));
-          }
+        (p.environments || []).forEach(env => {
+          (['postgres', 'mysql', 'mongo', 'redis', 'mariadb'] as const).forEach(type => {
+            const dbs = env[type] || [];
+            dbs.forEach((db: Database) => {
+              const idField = dbIdFields[type] as keyof Database;
+              databases.push({
+                id: db[idField] as string || '',
+                name: db.name,
+                type,
+                status: db.applicationStatus,
+              });
+            });
+          });
         });
       });
 
@@ -56,7 +75,7 @@ dbCommand
         { name: 'ID', key: 'id' },
         { name: 'Name', key: 'name' },
         { name: 'Type', key: 'type' },
-        { name: 'Status', key: 'databaseStatus' },
+        { name: 'Status', key: 'status' },
       ]);
     } catch (err) {
       s.fail('Failed to fetch databases');
@@ -126,9 +145,10 @@ dbCommand
       if (isJson()) {
         json(db);
       } else {
+        const idField = dbIdFields[dbType] as keyof Database;
         success(`${dbType} database "${name}" created`);
         keyValue({
-          'ID': db.id,
+          'ID': db[idField] as string || '',
           'Name': db.name,
           'Type': dbType,
         });
@@ -170,7 +190,7 @@ dbCommand
     const idField = `${dbType}Id`;
 
     try {
-      await api.delete(`/${router}.remove`, { [idField]: dbId });
+      await api.post(`/${router}.remove`, { [idField]: dbId });
       s.succeed('Database deleted');
 
       if (isJson()) {

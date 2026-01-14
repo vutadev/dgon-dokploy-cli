@@ -55,7 +55,7 @@ export function useAuth() {
 
   // Submit login
   const login = useCallback(
-    async (serverUrl: string, apiToken: string, alias: string): Promise<LoginResult> => {
+    async (serverUrl: string, apiToken: string, alias: string, skipVerify = false): Promise<LoginResult> => {
       // Validate inputs
       const urlError = validateUrl(serverUrl);
       if (urlError) return { success: false, error: urlError };
@@ -65,11 +65,12 @@ export function useAuth() {
       setIsVerifying(true);
 
       try {
-        // Verify connection
-        const valid = await verifyConnection(serverUrl, apiToken);
-
-        if (!valid) {
-          return { success: false, error: 'Connection failed. Check URL and token.' };
+        // Verify connection unless skipped
+        if (!skipVerify) {
+          const valid = await verifyConnection(serverUrl, apiToken);
+          if (!valid) {
+            return { success: false, error: 'Connection failed. Check URL/token, or use Ctrl+S to save without verifying.' };
+          }
         }
 
         // Save config
@@ -85,21 +86,24 @@ export function useAuth() {
         setShowLoginForm(false);
 
         // Show success message
-        setActionMessage({ text: `Connected to ${alias}`, type: 'success' });
+        const statusMsg = skipVerify ? `Saved ${alias} (unverified)` : `Connected to ${alias}`;
+        setActionMessage({ text: statusMsg, type: 'success' });
 
-        // Load projects after successful login
-        setLoading(true);
-        try {
-          const projectsData = await api.get<Project[]>('/project.all');
-          setProjects(projectsData);
-          setCachedProjects(projectsData);
-          if (projectsData.length > 0) {
-            setActiveProject(projectsData[0]);
+        // Load projects after successful login (skip if unverified)
+        if (!skipVerify) {
+          setLoading(true);
+          try {
+            const projectsData = await api.get<Project[]>('/project.all');
+            setProjects(projectsData);
+            setCachedProjects(projectsData);
+            if (projectsData.length > 0) {
+              setActiveProject(projectsData[0]);
+            }
+          } catch {
+            // Silently fail - user can manually refresh
+          } finally {
+            setLoading(false);
           }
-        } catch {
-          // Silently fail - user can manually refresh
-        } finally {
-          setLoading(false);
         }
 
         return { success: true };

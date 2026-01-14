@@ -40,7 +40,7 @@ export interface ApiResponse<T> {
   error?: string;
 }
 
-// Environment (nested in Project)
+// Environment (nested in Project) - contains all resources
 export interface Environment {
   environmentId: string;
   name: string;
@@ -49,6 +49,13 @@ export interface Environment {
   isDefault: boolean;
   createdAt: string;
   applications?: Application[];
+  compose?: Compose[];
+  // Databases are inside environments
+  postgres?: Database[];
+  mysql?: Database[];
+  mongo?: Database[];
+  redis?: Database[];
+  mariadb?: Database[];
 }
 
 // Project
@@ -75,15 +82,48 @@ export interface Application {
 // Database types
 export type DatabaseType = 'postgres' | 'mysql' | 'mongo' | 'redis' | 'mariadb';
 
+// Database - API returns type-specific ID (postgresId, mysqlId, etc.)
 export interface Database {
-  id: string;
+  postgresId?: string;
+  mysqlId?: string;
+  mongoId?: string;
+  redisId?: string;
+  mariadbId?: string;
+  name: string;
+  appName: string;
+  applicationStatus: 'idle' | 'running' | 'done' | 'error';
+  createdAt: string;
+}
+
+// Docker Compose
+export interface Compose {
+  composeId: string;
   name: string;
   appName: string;
   projectId: string;
-  databaseStatus: 'idle' | 'running' | 'done' | 'error';
-  type: DatabaseType;
+  composeStatus: 'idle' | 'running' | 'done' | 'error';
+  composeType: 'docker-compose' | 'stack';
+  sourceType: 'github' | 'gitlab' | 'bitbucket' | 'git' | 'raw';
   createdAt: string;
 }
+
+// Resource status union type
+export type ResourceStatus = 'idle' | 'running' | 'done' | 'error';
+
+// Resource type discriminator
+export type ResourceType = 'application' | 'database' | 'compose';
+
+// Database with resolved ID for TUI
+export interface DatabaseWithId extends Database {
+  id: string;
+  dbType: DatabaseType;
+}
+
+// Unified resource for TUI display (discriminated union)
+export type Resource =
+  | { type: 'application'; data: Application; projectId: string; environmentId: string }
+  | { type: 'database'; dbType: DatabaseType; data: DatabaseWithId; projectId: string; environmentId: string }
+  | { type: 'compose'; data: Compose; projectId: string; environmentId: string };
 
 // Domain
 export interface Domain {
@@ -127,6 +167,39 @@ export interface Deployment {
 export interface EnvVar {
   key: string;
   value: string;
+}
+
+// Extended Database (from /postgres.one, /mysql.one, etc.)
+export interface DatabaseFull extends Database {
+  description?: string;
+  env: string | null;
+  dockerImage?: string;
+  databaseName?: string;
+  databaseUser?: string;
+  databasePassword?: string;
+  externalPort?: number | null;
+  replicas: number;
+  memoryReservation?: number;
+  memoryLimit?: number;
+  cpuReservation?: number;
+  cpuLimit?: number;
+  mounts: Mount[];
+}
+
+// Extended Compose (from /compose.one)
+export interface ComposeFull extends Compose {
+  description?: string;
+  env: string | null;
+  composeFile?: string;
+  composePath?: string;
+  repository?: string;
+  owner?: string;
+  branch?: string;
+  customGitUrl?: string;
+  customGitBranch?: string;
+  domains: Domain[];
+  deployments: Deployment[];
+  mounts: Mount[];
 }
 
 // Extended Application (from /application.one)
@@ -209,6 +282,12 @@ export interface AppExport {
   version: string;
   type: 'application';
   exportedAt: string;
+  // Source reference (for re-import convenience)
+  source?: {
+    applicationId: string;
+    projectId: string;
+    projectName: string;
+  };
   data: {
     name: string;
     description?: string;

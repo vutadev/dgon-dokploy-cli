@@ -20,7 +20,7 @@ export function useDeployments() {
 
     setIsLoading(true);
     try {
-      const data = await api.post<Deployment[]>('/deployment.all', {
+      const data = await api.getWithParams<Deployment[]>('/deployment.all', {
         applicationId: activeApp.applicationId,
       });
       setDeployments(data);

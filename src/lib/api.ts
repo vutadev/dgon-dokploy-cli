@@ -77,6 +77,11 @@ export async function verifyConnection(
 // Convenience methods
 export const api = {
   get: <T>(endpoint: string) => apiRequest<T>(endpoint, { method: 'GET' }),
+  // GET with query params (for endpoints like /application.one?applicationId=xxx)
+  getWithParams: <T>(endpoint: string, params: Record<string, string>) => {
+    const queryString = new URLSearchParams(params).toString();
+    return apiRequest<T>(`${endpoint}?${queryString}`, { method: 'GET' });
+  },
   post: <T>(endpoint: string, body?: unknown) => apiRequest<T>(endpoint, { method: 'POST', body }),
   put: <T>(endpoint: string, body?: unknown) => apiRequest<T>(endpoint, { method: 'PUT', body }),
   delete: <T>(endpoint: string, body?: unknown) => apiRequest<T>(endpoint, { method: 'DELETE', body }),

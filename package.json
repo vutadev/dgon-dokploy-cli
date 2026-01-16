@@ -1,6 +1,6 @@
 {
   "name": "dokploy-cli",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "description": "CLI for Dokploy - self-hosted deployment platform",
   "type": "module",
   "bin": {

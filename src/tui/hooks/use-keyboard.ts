@@ -236,6 +236,21 @@ export function useKeyboard(options: KeyboardOptions = {}) {
         }
       }
 
+      // Export/Import (project-level operations - work from sidebar or main panel)
+      if (activePanel !== 'logs') {
+        // Export (x key) - project-level export
+        if (input === 'x' && onExport) {
+          onExport();
+          return;
+        }
+
+        // Import (I key) - project-level import
+        if (input === 'I' && onImport) {
+          onImport();
+          return;
+        }
+      }
+
       // Resource actions (only when resource is selected and in main panel)
       if (activeResource && activePanel === 'main') {
         // Application-specific actions
@@ -259,11 +274,6 @@ export function useKeyboard(options: KeyboardOptions = {}) {
           // Delete with confirm (D key)
           if (input === 'D' && onDelete) {
             onDelete();
-            return;
-          }
-          // Export (x key)
-          if (input === 'x' && onExport) {
-            onExport();
             return;
           }
         }
@@ -300,12 +310,6 @@ export function useKeyboard(options: KeyboardOptions = {}) {
             onStart();
             return;
           }
-        }
-
-        // Import (I key) - works for any resource type in main panel
-        if (input === 'I' && onImport) {
-          onImport();
-          return;
         }
       }
 

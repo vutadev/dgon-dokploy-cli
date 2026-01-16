@@ -1,11 +1,14 @@
 import Conf from 'conf';
 import type { DokployConfig, ServerConfig, LegacyDokployConfig, ConfigExport } from '../types/index.js';
+import { CONFIG_DIR } from './paths.js';
 
 const DEFAULT_ALIAS = 'default';
 
 const config = new Conf<DokployConfig>({
   projectName: 'dokploy',
   projectVersion: '0.2.0',
+  cwd: CONFIG_DIR,
+  configName: 'config',
   schema: {
     currentAlias: { type: 'string', default: DEFAULT_ALIAS },
     servers: { type: 'object', default: {} },

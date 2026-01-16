@@ -1,11 +1,17 @@
 import { useCallback, useState } from 'react';
 import { readdir, readFile } from 'fs/promises';
+import { join } from 'path';
 import { useAppContext } from '../context/app-context.js';
 import { api } from '../../lib/api.js';
+import { EXPORTS_DIR } from '../../lib/paths.js';
+import { useProjects } from './use-projects.js';
 import type {
   Application,
+  Compose,
   AppExport,
   ProjectExport,
+  ComposeExportData,
+  DatabaseExportData,
 } from '../../types/index.js';
 
 export interface ImportableService {
@@ -23,6 +29,7 @@ export interface ImportableService {
 export function useImport() {
   const {
     activeProject,
+    activeEnvironment,
     showImportDialog,
     importFiles,
     importSelectedIndex,
@@ -34,6 +41,9 @@ export function useImport() {
     setActionMessage,
   } = useAppContext();
 
+  // Get refresh function to update UI after import
+  const { refresh: refreshProjects } = useProjects();
+
   const [parsedExport, setParsedExport] = useState<AppExport | ProjectExport | null>(null);
   const [importableServices, setImportableServices] = useState<ImportableService[]>([]);
 
@@ -44,10 +54,12 @@ export function useImport() {
       return;
     }
 
-    // Scan for suggested files (but don't fail if none found)
+    // Scan for suggested files in ~/.dokploy/exports/ (but don't fail if none found)
     try {
-      const files = await readdir('.');
-      const jsonFiles = files.filter(f => f.endsWith('.json') && f.includes('export'));
+      const files = await readdir(EXPORTS_DIR);
+      const jsonFiles = files
+        .filter(f => f.endsWith('.json'))
+        .map(f => join(EXPORTS_DIR, f)); // Return full paths
       setImportFiles(jsonFiles);
     } catch {
       setImportFiles([]);
@@ -114,18 +126,20 @@ export function useImport() {
 
   // Import application data (helper for both single and project imports)
   const importApplicationData = useCallback(
-    async (appData: AppExport['data'], projectId: string) => {
-      // Create application
+    async (appData: AppExport['data'], projectId: string, environmentId?: string) => {
+      // Create application with environment
       const app = await api.post<Application>('/application.create', {
         projectId,
+        ...(environmentId && { environmentId }),
         name: appData.name,
         description: appData.description,
       });
 
-      // Update settings
+      // Update all settings including sourceType
       await api.post('/application.update', {
         applicationId: app.applicationId,
         buildType: appData.buildType,
+        sourceType: appData.sourceType,
         replicas: appData.replicas,
         dockerImage: appData.dockerImage,
         dockerfile: appData.dockerfile,
@@ -147,7 +161,133 @@ export function useImport() {
         });
       }
 
+      // Create mounts if present
+      for (const mount of appData.mounts || []) {
+        await api.post('/mount.create', {
+          applicationId: app.applicationId,
+          type: mount.type,
+          hostPath: mount.hostPath,
+          mountPath: mount.mountPath,
+          content: mount.content,
+        });
+      }
+
+      // Create ports if present
+      for (const port of appData.ports || []) {
+        await api.post('/port.create', {
+          applicationId: app.applicationId,
+          publishedPort: port.publishedPort,
+          targetPort: port.targetPort,
+          protocol: port.protocol,
+        });
+      }
+
       return app.applicationId;
+    },
+    []
+  );
+
+  // Import compose data with all fields
+  const importComposeData = useCallback(
+    async (compData: ComposeExportData, projectId: string, environmentId?: string) => {
+      // Create compose with environment
+      const compose = await api.post<Compose>('/compose.create', {
+        projectId,
+        ...(environmentId && { environmentId }),
+        name: compData.name,
+        description: compData.description,
+        composeType: compData.composeType,
+      });
+
+      // Update with all settings
+      await api.post('/compose.update', {
+        composeId: compose.composeId,
+        sourceType: compData.sourceType,
+        composeFile: compData.composeFile,
+        composePath: compData.composePath,
+      });
+
+      // Set env if present
+      if (compData.env) {
+        await api.post('/compose.saveEnvironment', {
+          composeId: compose.composeId,
+          env: compData.env,
+        });
+      }
+
+      // Create domains if present
+      for (const domain of compData.domains || []) {
+        await api.post('/domain.create', {
+          composeId: compose.composeId,
+          ...domain,
+        });
+      }
+
+      // Create mounts if present
+      for (const mount of compData.mounts || []) {
+        await api.post('/mount.create', {
+          composeId: compose.composeId,
+          type: mount.type,
+          hostPath: mount.hostPath,
+          mountPath: mount.mountPath,
+          content: mount.content,
+        });
+      }
+
+      return compose.composeId;
+    },
+    []
+  );
+
+  // Import database data with all fields
+  const importDatabaseData = useCallback(
+    async (dbData: DatabaseExportData, projectId: string, environmentId?: string) => {
+      // Create database with environment
+      const db = await api.post<{ [key: string]: string }>(`/${dbData.dbType}.create`, {
+        projectId,
+        ...(environmentId && { environmentId }),
+        name: dbData.name,
+        description: dbData.description,
+        dockerImage: dbData.dockerImage,
+        databaseName: dbData.databaseName,
+        databaseUser: dbData.databaseUser,
+      });
+
+      // Get the database ID from response
+      const dbIdKey = `${dbData.dbType}Id`;
+      const dbId = db[dbIdKey];
+
+      // Update with additional settings
+      if (dbId) {
+        await api.post(`/${dbData.dbType}.update`, {
+          [dbIdKey]: dbId,
+          replicas: dbData.replicas,
+          ...(dbData.externalPort !== null && { externalPort: dbData.externalPort }),
+          ...(dbData.memoryReservation && { memoryReservation: dbData.memoryReservation }),
+          ...(dbData.memoryLimit && { memoryLimit: dbData.memoryLimit }),
+        });
+
+        // Set env if present
+        if (dbData.env) {
+          await api.post(`/${dbData.dbType}.saveEnvironment`, {
+            [dbIdKey]: dbId,
+            env: dbData.env,
+          });
+        }
+
+        // Create mounts if present
+        for (const mount of dbData.mounts || []) {
+          await api.post('/mount.create', {
+            [dbIdKey]: dbId,
+            type: mount.type,
+            hostPath: mount.hostPath,
+            mountPath: mount.mountPath,
+            content: mount.content,
+          });
+        }
+      }
+
+      return dbId;
     },
     []
   );
@@ -156,9 +296,9 @@ export function useImport() {
   const loadFileFromPath = useCallback(async (filePath: string) => {
     if (!activeProject) return;
 
-    // Sanitize path to prevent path traversal
-    const { basename, resolve } = await import('path');
-    const safePath = resolve('.', basename(filePath));
+    // Resolve path (supports both relative and absolute paths)
+    const { resolve } = await import('path');
+    const safePath = resolve(filePath);
 
     try {
       const content = await readFile(safePath, 'utf-8');
@@ -176,7 +316,13 @@ export function useImport() {
         closeImportDialog();
         setActionMessage({ text: 'Importing...', type: 'info' });
         try {
-          await importApplicationData(exportData.data, activeProject.projectId);
+          await importApplicationData(
+            exportData.data,
+            activeProject.projectId,
+            activeEnvironment?.environmentId
+          );
+          // Refresh projects to show imported app
+          await refreshProjects();
           setActionMessage({ text: `Imported "${exportData.data.name}"`, type: 'success' });
         } catch (err) {
           const msg = err instanceof Error ? err.message : 'Import failed';
@@ -192,7 +338,7 @@ export function useImport() {
       const msg = err instanceof Error ? err.message : 'Failed to read file';
       setActionMessage({ text: msg, type: 'error' });
     }
-  }, [activeProject, parseProjectServices, setActionMessage, setImportStep, closeImportDialog, importApplicationData]);
+  }, [activeProject, activeEnvironment, parseProjectServices, setActionMessage, setImportStep, closeImportDialog, importApplicationData, refreshProjects]);
 
   // Execute import for selected services
   const executeProjectImport = useCallback(
@@ -203,6 +349,7 @@ export function useImport() {
       setActionMessage({ text: 'Importing services...', type: 'info' });
 
       const projectData = parsedExport as ProjectExport;
+      const envId = activeEnvironment?.environmentId;
       let successCount = 0;
       let failCount = 0;
 
@@ -213,30 +360,18 @@ export function useImport() {
         try {
           if (service.type === 'application') {
             const appData = projectData.data.applications[service.index];
-            await importApplicationData(appData, activeProject.projectId);
+            await importApplicationData(appData, activeProject.projectId, envId);
             successCount++;
           } else if (service.type === 'compose') {
             const compData = projectData.data.compose?.[service.index];
             if (compData) {
-              await api.post('/compose.create', {
-                projectId: activeProject.projectId,
-                name: compData.name,
-                description: compData.description,
-                composeType: compData.composeType,
-              });
+              await importComposeData(compData, activeProject.projectId, envId);
               successCount++;
             }
           } else if (service.type === 'database') {
             const dbData = projectData.data.databases?.[service.index];
             if (dbData) {
-              await api.post(`/${dbData.dbType}.create`, {
-                projectId: activeProject.projectId,
-                name: dbData.name,
-                description: dbData.description,
-                dockerImage: dbData.dockerImage,
-                databaseName: dbData.databaseName,
-                databaseUser: dbData.databaseUser,
-              });
+              await importDatabaseData(dbData, activeProject.projectId, envId);
               successCount++;
             }
           }
@@ -245,10 +380,15 @@ export function useImport() {
         }
       }
 
+      // Refresh projects to show imported services
+      if (successCount > 0) {
+        await refreshProjects();
+      }
+
       const msg = `Imported ${successCount} service(s)${failCount > 0 ? `, ${failCount} failed` : ''}`;
       setActionMessage({ text: msg, type: successCount > 0 ? 'success' : 'error' });
     },
-    [activeProject, parsedExport, importableServices, closeImportDialog, setActionMessage, importApplicationData]
+    [activeProject, activeEnvironment, parsedExport, importableServices, closeImportDialog, setActionMessage, importApplicationData, importComposeData, importDatabaseData, refreshProjects]
   );
 
   return {

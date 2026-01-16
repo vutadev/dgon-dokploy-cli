@@ -9,10 +9,15 @@ interface AutoRefreshOptions {
 /**
  * Hook for auto-refreshing data at intervals
  * Used for polling app status updates
+ * Uses ref for onRefresh to prevent interval restarts when callback changes
  */
 export function useAutoRefresh(options: AutoRefreshOptions) {
   const { interval = 5000, enabled = true, onRefresh } = options;
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Use ref for onRefresh to prevent interval restarts when callback identity changes
+  const onRefreshRef = useRef(onRefresh);
+  onRefreshRef.current = onRefresh;
 
   const stop = useCallback(() => {
     if (timerRef.current) {
@@ -25,12 +30,12 @@ export function useAutoRefresh(options: AutoRefreshOptions) {
     stop();
     if (enabled) {
       timerRef.current = setInterval(() => {
-        onRefresh();
+        onRefreshRef.current();
       }, interval);
     }
-  }, [enabled, interval, onRefresh, stop]);
+  }, [enabled, interval, stop]);
 
-  // Start/stop based on enabled state
+  // Start/stop based on enabled state or interval change
   useEffect(() => {
     if (enabled) {
       start();
@@ -38,7 +43,7 @@ export function useAutoRefresh(options: AutoRefreshOptions) {
       stop();
     }
     return stop;
-  }, [enabled, start, stop]);
+  }, [enabled, interval, start, stop]);
 
   return { start, stop };
 }

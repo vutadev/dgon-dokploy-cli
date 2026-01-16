@@ -2,6 +2,7 @@
 import { program } from 'commander';
 import { setOutputMode } from './lib/output.js';
 import { setActiveAlias } from './lib/config.js';
+import { ensureDokployDirs } from './lib/paths.js';
 import { authCommand } from './commands/auth.js';
 import { configCommand } from './commands/config.js';
 import { projectCommand } from './commands/project.js';
@@ -12,6 +13,9 @@ import { envCommand } from './commands/env.js';
 import { serverCommand } from './commands/server.js';
 import { destinationCommand } from './commands/destination.js';
 import { composeCommand } from './commands/compose.js';
+
+// Ensure ~/.dokploy directories exist
+await ensureDokployDirs();
 
 // Check if TUI mode should be launched
 const isTTY = process.stdout.isTTY;

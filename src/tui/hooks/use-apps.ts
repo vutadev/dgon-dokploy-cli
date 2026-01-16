@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useAppContext } from '../context/app-context.js';
 import { getCachedApps, setCachedApps } from '../../lib/cache.js';
 import type { Resource, DatabaseType, Database, DatabaseWithId, Environment } from '../../types/index.js';
@@ -76,8 +76,16 @@ export function useApps() {
     return resourceList;
   }, []);
 
+  // Use refs to access state without adding as dependencies (prevents infinite loops)
+  const activeResourceRef = useRef(activeResource);
+  const activeAppRef = useRef(activeApp);
+  const activeEnvironmentRef = useRef(activeEnvironment);
+  activeResourceRef.current = activeResource;
+  activeAppRef.current = activeApp;
+  activeEnvironmentRef.current = activeEnvironment;
+
   // Extract resources for active environment only
-  const extractResources = useCallback((projectId: string, useCache = true) => {
+  const extractResources = useCallback((projectId: string, project: Project | null, useCache = true) => {
     // Try cache first for apps
     if (useCache) {
       const cached = getCachedApps(projectId);
@@ -86,15 +94,16 @@ export function useApps() {
       }
     }
 
-    if (!activeProject || activeProject.projectId !== projectId) {
+    if (!project || project.projectId !== projectId) {
       return [];
     }
 
-    // Always look up fresh environment from activeProject.environments
-    // (activeEnvironment state may be stale after refresh)
-    const environments = activeProject.environments || [];
-    const targetEnv = activeEnvironment
-      ? environments.find(e => e.environmentId === activeEnvironment.environmentId) || environments[0]
+    // Always look up fresh environment from project.environments
+    // Use ref to get current activeEnvironment without causing dependency loop
+    const currentActiveEnv = activeEnvironmentRef.current;
+    const environments = project.environments || [];
+    const targetEnv = currentActiveEnv
+      ? environments.find(e => e.environmentId === currentActiveEnv.environmentId) || environments[0]
       : environments[0];
 
     if (!targetEnv) {
@@ -107,7 +116,7 @@ export function useApps() {
     }
 
     // Extract resources from target environment only
-    const resourceList = extractResourcesFromEnv(targetEnv, activeProject.projectId);
+    const resourceList = extractResourcesFromEnv(targetEnv, project.projectId);
 
     // Update apps list (only apps from active environment)
     const appsList = (targetEnv.applications || []);
@@ -117,6 +126,10 @@ export function useApps() {
     setResources(resourceList);
 
     // Set active resource/app - preserve current selection if it still exists
+    // Use refs to get current values without causing dependency loop
+    const currentActiveResource = activeResourceRef.current;
+    const currentActiveApp = activeAppRef.current;
+
     if (resourceList.length > 0) {
       // Helper to get resource ID for comparison
       const getResourceId = (resource: Resource): string => {
@@ -130,7 +143,7 @@ export function useApps() {
         }
       };
 
-      if (!activeResource) {
+      if (!currentActiveResource) {
         // No resource selected, select first one
         setActiveResource(resourceList[0]);
         if (resourceList[0].type === 'application') {
@@ -140,7 +153,7 @@ export function useApps() {
         }
       } else {
         // Resource already selected, update to fresh data if it still exists
-        const currentResourceId = getResourceId(activeResource);
+        const currentResourceId = getResourceId(currentActiveResource);
         const updatedResource = resourceList.find(r => getResourceId(r) === currentResourceId);
 
         if (updatedResource) {
@@ -148,9 +161,9 @@ export function useApps() {
           setActiveResource(updatedResource);
           if (updatedResource.type === 'application') {
             setActiveApp(updatedResource.data);
-          } else if (activeApp) {
+          } else if (currentActiveApp) {
             // Preserve app selection if it still exists
-            const updatedApp = appsList.find(a => a.applicationId === activeApp.applicationId);
+            const updatedApp = appsList.find(a => a.applicationId === currentActiveApp.applicationId);
             setActiveApp(updatedApp || appsList[0] || null);
           }
         } else {
@@ -169,22 +182,27 @@ export function useApps() {
     }
 
     return resourceList;
-  }, [activeProject, activeEnvironment, extractResourcesFromEnv, setApps, setResources, setActiveApp, setActiveResource, activeResource, activeApp]);
+  }, [extractResourcesFromEnv, setApps, setResources, setActiveApp, setActiveResource]);
 
   // Auto-select default environment when project changes
+  // Use projectId as dependency to avoid infinite loops when activeProject object changes
   useEffect(() => {
     if (activeProject) {
       const environments = activeProject.environments || [];
+      const currentActiveEnv = activeEnvironmentRef.current;
       if (environments.length > 0) {
-        if (!activeEnvironment) {
+        if (!currentActiveEnv) {
           // No environment selected, select default environment (isDefault=true) or first one
           const defaultEnv = environments.find(e => e.isDefault) || environments[0];
           setActiveEnvironment(defaultEnv);
         } else {
           // Environment already selected, update to fresh data if it still exists
-          const updatedEnv = environments.find(e => e.environmentId === activeEnvironment.environmentId);
+          const updatedEnv = environments.find(e => e.environmentId === currentActiveEnv.environmentId);
           if (updatedEnv) {
-            setActiveEnvironment(updatedEnv);
+            // Only update if data actually changed to prevent unnecessary re-renders
+            if (JSON.stringify(updatedEnv) !== JSON.stringify(currentActiveEnv)) {
+              setActiveEnvironment(updatedEnv);
+            }
           } else {
             // Selected environment no longer exists, select default or first one
             const defaultEnv = environments.find(e => e.isDefault) || environments[0];
@@ -192,29 +210,48 @@ export function useApps() {
           }
         }
       } else {
-        setActiveEnvironment(null);
+        if (currentActiveEnv !== null) {
+          setActiveEnvironment(null);
+        }
       }
     } else {
-      setActiveEnvironment(null);
+      const currentActiveEnv = activeEnvironmentRef.current;
+      if (currentActiveEnv !== null) {
+        setActiveEnvironment(null);
+      }
     }
-  }, [activeProject, setActiveEnvironment, activeEnvironment]); // Depend on activeProject (not just projectId) to update on refresh
+  }, [activeProject?.projectId, setActiveEnvironment]); // Use projectId to trigger on project change only
+
+  // Track last processed project/environment to avoid redundant processing
+  const lastProcessedRef = useRef<string | null>(null);
 
   // Load resources when project or environment changes (or project data updates)
   useEffect(() => {
     if (activeProject) {
-      extractResources(activeProject.projectId, false);
+      const currentEnvId = activeEnvironmentRef.current?.environmentId;
+      const processKey = `${activeProject.projectId}:${currentEnvId}`;
+
+      // Only process if project/environment actually changed
+      if (lastProcessedRef.current !== processKey) {
+        lastProcessedRef.current = processKey;
+        extractResources(activeProject.projectId, activeProject, false);
+      }
     } else {
+      lastProcessedRef.current = null;
       setApps([]);
       setResources([]);
       setActiveApp(null);
       setActiveResource(null);
     }
-  }, [activeProject, activeEnvironment?.environmentId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProject?.projectId, activeEnvironment?.environmentId, extractResources, setApps, setResources, setActiveApp, setActiveResource]);
 
   // Force refresh - re-extract from project data
   const refresh = useCallback(() => {
     if (activeProject) {
-      return Promise.resolve(extractResources(activeProject.projectId, false));
+      // Reset process key to force re-extraction
+      lastProcessedRef.current = null;
+      return Promise.resolve(extractResources(activeProject.projectId, activeProject, false));
     }
     return Promise.resolve([]);
   }, [activeProject, extractResources]);

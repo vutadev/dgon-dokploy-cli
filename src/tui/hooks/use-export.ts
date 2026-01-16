@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
-import { writeFile } from 'fs/promises';
+import { writeFile, mkdir } from 'fs/promises';
+import { dirname } from 'path';
 import { useAppContext } from '../context/app-context.js';
 import { api } from '../../lib/api.js';
 import type {
@@ -209,6 +210,8 @@ export function useExport() {
           },
         };
 
+        // Ensure output directory exists
+        await mkdir(dirname(outputPath), { recursive: true });
         await writeFile(outputPath, JSON.stringify(exportData, null, 2));
         setActionMessage({ text: `Exported to ${outputPath}`, type: 'success' });
       } catch (err) {

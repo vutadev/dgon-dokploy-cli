@@ -6,6 +6,7 @@ import { useImport } from '../hooks/use-import.js';
 import { useMultiSelect } from '../hooks/use-multi-select.js';
 import { usePathInput } from '../hooks/use-path-input.js';
 import { useAppContext } from '../context/app-context.js';
+import { EXPORTS_DIR } from '../../lib/paths.js';
 
 /**
  * Import dialog with two-step process:
@@ -26,8 +27,8 @@ export function ImportDialog() {
     executeProjectImport,
   } = useImport();
 
-  // Path input for step 1
-  const defaultPath = importFiles.length > 0 ? importFiles[0] : './project-export.json';
+  // Path input for step 1 - use ~/.dokploy/exports/ as default location
+  const defaultPath = importFiles.length > 0 ? importFiles[0] : `${EXPORTS_DIR}/`;
   const pathInput = usePathInput({
     initialValue: defaultPath,
     mode: 'import',

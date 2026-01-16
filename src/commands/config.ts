@@ -10,6 +10,7 @@ import {
 } from '../lib/config.js';
 import { success, error, info, keyValue, spinner, isJson, json } from '../lib/output.js';
 import type { ConfigExport } from '../types/index.js';
+import { getConfigExportPath, ensureDokployDirs } from '../lib/paths.js';
 
 export const configCommand = new Command('config')
   .description('Manage CLI configuration');
@@ -33,7 +34,8 @@ configCommand
       return;
     }
 
-    const outputFile = file || 'dokploy-config.json';
+    await ensureDokployDirs();
+    const outputFile = file || getConfigExportPath();
     const s = spinner(`Exporting to ${outputFile}...`).start();
 
     try {

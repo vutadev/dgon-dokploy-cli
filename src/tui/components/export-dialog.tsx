@@ -6,6 +6,7 @@ import { useExport } from '../hooks/use-export.js';
 import { useMultiSelect } from '../hooks/use-multi-select.js';
 import { usePathInput } from '../hooks/use-path-input.js';
 import { useAppContext } from '../context/app-context.js';
+import { getDefaultExportPath } from '../../lib/paths.js';
 
 /**
  * Export dialog with two-step process:
@@ -48,10 +49,10 @@ export function ExportDialog() {
     initialSelected: multiSelectItems.map(i => i.id), // Select all by default
   });
 
-  // Path input hook
+  // Path input hook - use ~/.dokploy/exports/ as default location
   const defaultPath = activeProject
-    ? `./${activeProject.name}-export.json`
-    : './project-export.json';
+    ? getDefaultExportPath(activeProject.name)
+    : getDefaultExportPath('project');
   const pathInput = usePathInput({
     initialValue: defaultPath,
     mode: 'export',

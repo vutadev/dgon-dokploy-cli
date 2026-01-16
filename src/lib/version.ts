@@ -16,7 +16,7 @@ try {
   pkg = require('../../package.json');
 } catch {
   // Fallback for bundled builds
-  pkg = { version: '0.2.4' };
+  pkg = { version: '0.2.7' };
 }
 
 export const VERSION = pkg.version;

@@ -1,12 +1,13 @@
 import Conf from 'conf';
 import type { DokployConfig, ServerConfig, LegacyDokployConfig, ConfigExport } from '../types/index.js';
 import { CONFIG_DIR } from './paths.js';
+import { VERSION } from './version.js';
 
 const DEFAULT_ALIAS = 'default';
 
 const config = new Conf<DokployConfig>({
   projectName: 'dokploy',
-  projectVersion: '0.2.0',
+  projectVersion: VERSION,
   cwd: CONFIG_DIR,
   configName: 'config',
   schema: {
@@ -134,7 +135,7 @@ export function exportConfig(aliases?: string[]): ConfigExport {
   }
 
   return {
-    version: '0.2.0',
+    version: VERSION,
     exportedAt: new Date().toISOString(),
     servers: exportData,
   };

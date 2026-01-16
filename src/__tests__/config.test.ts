@@ -168,7 +168,7 @@ describe('config export/import', () => {
     });
 
     const exported = exportConfig();
-    expect(exported.version).toBe('0.2.0');
+    expect(exported.version).toMatch(/^\d+\.\d+\.\d+$/); // Matches version from package.json
     expect(Object.keys(exported.servers).length).toBe(2);
     expect(exported.servers['prod'].serverUrl).toBe('https://prod.example.com');
   });

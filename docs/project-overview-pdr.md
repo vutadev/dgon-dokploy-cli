@@ -148,7 +148,7 @@ All new types support advanced application configuration:
 
 ## Version & Release
 
-- **Current Version**: 0.2.0
+- **Current Version**: 0.2.3
 - **Phase**: Phase 1 Core CLI completion
 - **License**: MIT
 - **Min Bun Version**: 1.1.0

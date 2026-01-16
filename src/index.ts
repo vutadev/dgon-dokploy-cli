@@ -13,6 +13,7 @@ import { envCommand } from './commands/env.js';
 import { serverCommand } from './commands/server.js';
 import { destinationCommand } from './commands/destination.js';
 import { composeCommand } from './commands/compose.js';
+import { VERSION } from './lib/version.js';
 
 // Ensure ~/.dokploy directories exist
 await ensureDokployDirs();
@@ -32,7 +33,7 @@ if (isTTY && !hasSubcommand && !forceNoTUI) {
   program
     .name('dokploy')
     .description('CLI for Dokploy - self-hosted deployment platform')
-    .version('0.2.3')
+    .version(VERSION)
     .option('--json', 'Output as JSON')
     .option('-q, --quiet', 'Suppress spinners and progress output')
     .option('--config <path>', 'Path to config file')

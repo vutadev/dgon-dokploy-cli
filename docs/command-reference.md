@@ -1,6 +1,6 @@
 # Dokploy CLI Command Reference
 
-Complete documentation of all CLI commands, options, and subcommands available in dokploy-cli v0.2.0.
+Complete documentation of all CLI commands, options, and subcommands available in dokploy-cli v0.2.3.
 
 ## Global Options
 

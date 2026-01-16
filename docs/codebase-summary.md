@@ -3,7 +3,7 @@
 ## Overview
 dokploy-cli is a TypeScript CLI application built with Bun for managing Dokploy self-hosted deployments. It provides commands for authentication, project management, application deployment, database management, domain configuration, environment variables, and server monitoring.
 
-**Version**: 0.2.0
+**Version**: 0.2.3
 **Package Manager**: Bun 1.1+
 **Language**: TypeScript 5.7+
 **Module Format**: ES Modules
@@ -58,7 +58,7 @@ dokploy-cli/
 - Registers global options: `--json`, `-q/--quiet`, `--config`, `--server`, `-a/--alias`, `--no-tui`
 - Imports and adds 9 command modules
 - Hook: `preAction` sets output mode and active server alias based on options
-- Version: 0.2.0
+- Version: 0.2.3
 - Supports both TUI mode (default in interactive terminal) and CLI mode (for scripts/automation)
 
 ### API Client (src/lib/api.ts)

@@ -1,7 +1,7 @@
 # Documentation Status - Phase 1 Core CLI Completion
 
 **Date**: January 13, 2026
-**Version**: 0.2.0
+**Version**: 0.2.3
 **Status**: COMPLETE
 
 ---
@@ -307,5 +307,5 @@ Individual files:
 ---
 
 **Last Updated**: January 13, 2026
-**Documentation Version**: 0.2.0
+**Documentation Version**: 0.2.3
 **Maintained By**: Documentation Manager

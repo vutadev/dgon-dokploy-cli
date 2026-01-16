@@ -1,6 +1,7 @@
 import { Box, Text } from 'ink';
 import { useServers } from '../hooks/use-servers.js';
 import { useAppContext } from '../context/app-context.js';
+import { VERSION } from '../../lib/version.js';
 
 /**
  * Top bar showing CLI version and active server
@@ -26,7 +27,7 @@ export function Header() {
       justifyContent="space-between"
     >
       <Text bold color="cyan">
-        Dokploy CLI v0.2.0
+        Dokploy CLI v{VERSION}
       </Text>
       <Box gap={1}>
         <Box>

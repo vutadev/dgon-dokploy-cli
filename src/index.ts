@@ -13,7 +13,10 @@ import { envCommand } from './commands/env.js';
 import { serverCommand } from './commands/server.js';
 import { destinationCommand } from './commands/destination.js';
 import { composeCommand } from './commands/compose.js';
+import { updateCommand } from './commands/update.js';
 import { VERSION } from './lib/version.js';
+import { checkForUpdate, shouldCheckForUpdate } from './lib/update-checker.js';
+import { isAutoUpdateCheckEnabled, getLastUpdateCheck, setLastUpdateCheck } from './lib/config.js';
 
 // Ensure ~/.dokploy directories exist
 await ensureDokployDirs();
@@ -59,7 +62,37 @@ if (isTTY && !hasSubcommand && !forceNoTUI) {
   program.addCommand(serverCommand);
   program.addCommand(destinationCommand);
   program.addCommand(composeCommand);
+  program.addCommand(updateCommand);
+
+  // Background update check (non-blocking)
+  let updateNotification: Promise<string | null> | null = null;
+  const isTTYMode = process.stdout.isTTY;
+  const lastCheck = getLastUpdateCheck();
+  const autoCheckEnabled = isAutoUpdateCheckEnabled();
+
+  if (isTTYMode && shouldCheckForUpdate(lastCheck, autoCheckEnabled)) {
+    updateNotification = (async () => {
+      try {
+        const result = await checkForUpdate();
+        setLastUpdateCheck(Date.now());
+        if (result.updateAvailable && result.latestVersion) {
+          return `Update available: ${result.currentVersion} -> ${result.latestVersion}. Run: dokploy update`;
+        }
+      } catch {
+        // Silent fail
+      }
+      return null;
+    })();
+  }
 
   // Parse args
-  program.parse();
+  await program.parseAsync();
+
+  // Show update notification after command completes
+  if (updateNotification) {
+    const msg = await updateNotification;
+    if (msg && !process.argv.includes('--json') && !process.argv.includes('-q') && !process.argv.includes('--quiet')) {
+      console.log(`\n\x1b[33m${msg}\x1b[0m`);
+    }
+  }
 }

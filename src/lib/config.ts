@@ -1,39 +1,22 @@
 import Conf from 'conf';
-import type { DokployConfig, ServerConfig, LegacyDokployConfig, ConfigExport } from '../types/index.js';
+import type { DokployConfig, ServerConfig, ConfigExport } from '../types/index.js';
 import { CONFIG_DIR } from './paths.js';
 import { VERSION } from './version.js';
 
 const DEFAULT_ALIAS = 'default';
 
+// Note: Removed projectVersion and migrations to prevent config clearing on version bumps.
+// The conf library triggers migrations when projectVersion changes, which was causing
+// user data loss. Since we no longer need legacy config migration, this is safe to remove.
 const config = new Conf<DokployConfig>({
   projectName: 'dokploy',
-  projectVersion: VERSION,
   cwd: CONFIG_DIR,
   configName: 'config',
   schema: {
     currentAlias: { type: 'string', default: DEFAULT_ALIAS },
     servers: { type: 'object', default: {} },
-  },
-  migrations: {
-    // Migrate from legacy single-server config to multi-server
-    '0.2.0': (store) => {
-      const legacy = store as unknown as LegacyDokployConfig & DokployConfig;
-      if (legacy.serverUrl && legacy.apiToken && !legacy.servers) {
-        const servers: Record<string, ServerConfig> = {
-          [DEFAULT_ALIAS]: {
-            serverUrl: legacy.serverUrl,
-            apiToken: legacy.apiToken,
-            defaultProjectId: legacy.defaultProjectId,
-          },
-        };
-        config.set('servers', servers);
-        config.set('currentAlias', DEFAULT_ALIAS);
-        // Clean up legacy keys
-        config.delete('serverUrl' as keyof DokployConfig);
-        config.delete('apiToken' as keyof DokployConfig);
-        config.delete('defaultProjectId' as keyof DokployConfig);
-      }
-    },
+    autoUpdateCheck: { type: 'boolean', default: true },
+    lastUpdateCheck: { type: 'number', default: 0 },
   },
 });
 
@@ -169,4 +152,21 @@ export function getConfig(): ServerConfig {
 // Legacy compatibility - set config for current alias
 export function setConfig(data: Partial<ServerConfig>): void {
   setServerConfig(getActiveAlias(), data);
+}
+
+// Auto update check settings
+export function isAutoUpdateCheckEnabled(): boolean {
+  return config.get('autoUpdateCheck') !== false;
+}
+
+export function setAutoUpdateCheck(enabled: boolean): void {
+  config.set('autoUpdateCheck', enabled);
+}
+
+export function getLastUpdateCheck(): number {
+  return config.get('lastUpdateCheck') || 0;
+}
+
+export function setLastUpdateCheck(timestamp: number): void {
+  config.set('lastUpdateCheck', timestamp);
 }

@@ -18,13 +18,8 @@ export interface ServerConfig {
 export interface DokployConfig {
   currentAlias: string;
   servers: Record<string, ServerConfig>;
-}
-
-// Legacy config format (for migration)
-export interface LegacyDokployConfig {
-  serverUrl: string;
-  apiToken: string;
-  defaultProjectId?: string;
+  autoUpdateCheck?: boolean;
+  lastUpdateCheck?: number;
 }
 
 // Export format for config

@@ -32,7 +32,7 @@ if (isTTY && !hasSubcommand && !forceNoTUI) {
   program
     .name('dokploy')
     .description('CLI for Dokploy - self-hosted deployment platform')
-    .version('0.2.2')
+    .version('0.2.3')
     .option('--json', 'Output as JSON')
     .option('-q, --quiet', 'Suppress spinners and progress output')
     .option('--config <path>', 'Path to config file')

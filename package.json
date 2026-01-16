@@ -1,10 +1,11 @@
 {
   "name": "dokploy-cli",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "CLI for Dokploy - self-hosted deployment platform",
   "type": "module",
   "bin": {
-    "dokploy": "./dist/index.js"
+    "dokploy": "./dist/index.js",
+    "dokploy-cli": "./dist/index.js"
   },
   "files": [
     "dist"

@@ -2,7 +2,7 @@
 
 CLI for Dokploy, a self-hosted deployment platform. Manage projects, applications, databases, domains, environments, and servers from the command line with full support for multi-server deployments.
 
-**Version:** 0.2.2 | **License:** MIT | **Minimum Bun:** 1.1.0
+**Version:** 0.2.3 | **License:** MIT | **Minimum Bun:** 1.1.0
 
 ---
 
@@ -1023,4 +1023,4 @@ dokploy -q project list
 
 ---
 
-**Last Updated:** January 2026 | **CLI Version:** 0.2.2
+**Last Updated:** January 2026 | **CLI Version:** 0.2.3

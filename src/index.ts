@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 import { program } from 'commander';
 import { setOutputMode } from './lib/output.js';
 import { setActiveAlias } from './lib/config.js';
@@ -32,7 +32,7 @@ if (isTTY && !hasSubcommand && !forceNoTUI) {
   program
     .name('dokploy')
     .description('CLI for Dokploy - self-hosted deployment platform')
-    .version('0.2.0')
+    .version('0.2.2')
     .option('--json', 'Output as JSON')
     .option('-q, --quiet', 'Suppress spinners and progress output')
     .option('--config <path>', 'Path to config file')
